@@ -28,3 +28,9 @@
   background: var(--tint-down);
   color: var(--down);
 }
+
+/* No direction to colour: the upstream had no figure to give. */
+.pillFlat {
+  background: var(--surface-alt);
+  color: var(--muted);
+}

@@ -295,6 +295,40 @@ describe('startKrakenTicker', () => {
     expect(dispatch).not.toHaveBeenCalled();
   });
 
+  // The frame is JSON off a socket. The interface above is a description of it,
+  // not a guarantee about it.
+  it('ignores a tick whose price is not a finite number', () => {
+    // Arrange
+    startAndSubscribe(['btc']);
+    dispatch.mockClear();
+
+    // Act
+    latest().onmessage?.(
+      tickerMessage([{ symbol: 'BTC/USD', last: 'nonsense' }]),
+    );
+    jest.advanceTimersByTime(250);
+
+    // Assert — NaN reaches the chart's geometry and silently draws nothing
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: tickersApplied.type }),
+    );
+  });
+
+  it('ignores a tick for a symbol it never subscribed to', () => {
+    // Arrange
+    startAndSubscribe(['btc']);
+    dispatch.mockClear();
+
+    // Act
+    latest().onmessage?.(tickerMessage([{ symbol: 'DOGE/USD', last: 1 }]));
+    jest.advanceTimersByTime(250);
+
+    // Assert — no row reads it; it would just pile up under a dead key
+    expect(dispatch).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: tickersApplied.type }),
+    );
+  });
+
   it('survives malformed JSON without throwing', () => {
     // Arrange
     startAndSubscribe();

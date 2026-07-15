@@ -50,6 +50,67 @@ beforeEach(() => {
 
 afterEach(() => jest.resetAllMocks());
 
+// Arrange helper: serve whatever CoinGecko is pretending to send this time.
+const coinGeckoReturns = (body: unknown) => {
+  (global.fetch as jest.Mock).mockResolvedValue({
+    ok: true,
+    status: 200,
+    headers: { get: () => null },
+    json: async () => body,
+  });
+};
+
+// TypeScript describes what CoinGecko documents. Only these check what it sent.
+describe('getCoins — upstream that does not keep its contract', () => {
+  it('keeps a coin whose 24h change is missing, rather than losing its price', () => {
+    // Arrange — CoinGecko sends null on markets too thin to measure
+    coinGeckoReturns([
+      { ...metadata()[0], price_change_percentage_24h: null },
+      metadata()[1],
+    ]);
+
+    // Act
+    return getCoins().then((coins) => {
+      // Assert — the price is the point; the percentage is not worth it
+      expect(coins[0]).toMatchObject({
+        id: 'bitcoin',
+        current_price: 64788,
+        price_change_percentage_24h: null,
+      });
+    });
+  });
+
+  it('drops a coin whose numbers are not numbers', async () => {
+    // Arrange
+    coinGeckoReturns([{ ...metadata()[0], market_cap: 'lots' }, metadata()[1]]);
+
+    // Act
+    const coins = await getCoins();
+
+    // Assert — NaN here reaches the chart's geometry and draws nothing at all
+    expect(coins.map((coin) => coin.id)).toEqual(['ethereum']);
+  });
+
+  it('drops a coin missing the fields it is identified by', async () => {
+    // Arrange
+    coinGeckoReturns([{ ...metadata()[0], name: undefined }, metadata()[1]]);
+
+    // Act
+    const coins = await getCoins();
+
+    // Assert — a card headed "undefined" is worse than one fewer card
+    expect(coins.map((coin) => coin.id)).toEqual(['ethereum']);
+  });
+
+  it('refuses a response that is not a list at all', async () => {
+    // Arrange — an error object where the array should be
+    coinGeckoReturns({ error: 'rate limited' });
+
+    // Act / Assert
+    await expect(getCoins()).rejects.toThrow('expected an array');
+  });
+});
+
 describe('getCoins', () => {
   it('takes identity from CoinGecko', async () => {
     // Arrange / Act

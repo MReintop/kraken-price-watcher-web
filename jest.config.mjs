@@ -17,6 +17,19 @@ const config = {
   // More reliable than babel-istanbul under the SWC transform.
   coverageProvider: 'v8',
   coverageDirectory: '<rootDir>/coverage',
+  // A floor just under the current numbers, for the same reason the byte budgets
+  // sit just above the current build: a threshold with room to spare reports
+  // nothing until something catastrophic. Reported-but-not-enforced coverage
+  // decays quietly, which is the failure mode the excluded list already fights.
+  // Raise these when the real number rises; lower them only with a reason.
+  coverageThreshold: {
+    global: {
+      statements: 99,
+      branches: 91,
+      functions: 94,
+      lines: 99,
+    },
+  },
   // Every source file, so untested ones surface at 0% rather than being absent.
   // Excluded below: what Jest cannot render, which is covered in e2e/ instead.
   collectCoverageFrom: [

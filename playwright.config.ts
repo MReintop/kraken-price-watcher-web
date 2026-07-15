@@ -8,13 +8,17 @@ const APP_PORT = 3100;
 // socket URL is redirected too: inlined at build time, it means the bundle under
 // test carries no route to the real exchange, so a spec that forgets to
 // intercept fails locally instead of quietly trading on live data.
-const stubEnv = [
-  `COINGECKO_BASE_URL=http://localhost:${STUB_PORT}/coingecko`,
-  `KRAKEN_BASE_URL=http://localhost:${STUB_PORT}/kraken`,
-  `NEXT_PUBLIC_KRAKEN_WS_URL=ws://localhost:${STUB_PORT}/socket`,
+//
+// Passed through webServer.env rather than written inline in the command:
+// `VAR=value cmd` is shell syntax, and it is not cmd.exe's — inline, the whole
+// suite is simply unrunnable on Windows.
+const stubEnv = {
+  COINGECKO_BASE_URL: `http://localhost:${STUB_PORT}/coingecko`,
+  KRAKEN_BASE_URL: `http://localhost:${STUB_PORT}/kraken`,
+  NEXT_PUBLIC_KRAKEN_WS_URL: `ws://localhost:${STUB_PORT}/socket`,
   // Own build directory, so a running `next dev` cannot clobber this build.
-  'NEXT_DIST_DIR=.next-e2e',
-].join(' ');
+  NEXT_DIST_DIR: '.next-e2e',
+};
 
 export default defineConfig({
   testDir: './e2e',
@@ -40,13 +44,15 @@ export default defineConfig({
   // production build, never `next dev`.
   webServer: [
     {
-      command: `STUB_PORT=${STUB_PORT} node e2e/stub/upstreams.mjs`,
+      command: 'node e2e/stub/upstreams.mjs',
+      env: { STUB_PORT: String(STUB_PORT) },
       port: STUB_PORT,
       reuseExistingServer: !process.env.CI,
       stdout: 'pipe',
     },
     {
-      command: `${stubEnv} npm run build && ${stubEnv} npx next start -p ${APP_PORT}`,
+      command: `npm run build && npx next start -p ${APP_PORT}`,
+      env: stubEnv,
       port: APP_PORT,
       reuseExistingServer: !process.env.CI,
       timeout: 180_000,

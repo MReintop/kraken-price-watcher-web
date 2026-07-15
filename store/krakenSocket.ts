@@ -48,6 +48,7 @@ export function startKrakenTicker(
   dispatch: AppDispatch,
 ): () => void {
   const pairs = symbols.map((s) => `${s.toUpperCase()}/USD`);
+  const subscribedPairs = new Set(pairs);
   const buffer = new Map<string, KrakenTick>(); // latest tick per symbol wins
 
   let ws: WebSocket | null = null;
@@ -182,6 +183,13 @@ export function startKrakenTicker(
       if (msg.channel !== 'ticker' || !Array.isArray(msg.data)) return;
       setStatus('live'); // a frame after silence un-stales
       for (const t of msg.data) {
+        // Checked, not trusted: the frame is JSON off a socket. A price that is
+        // not a finite number reaches SVG geometry and draws nothing at all, and
+        // a symbol we never subscribed to has no row to reach — it would just
+        // accumulate in the store under a key nobody reads.
+        if (!subscribedPairs.has(t?.symbol) || !Number.isFinite(t?.last)) {
+          continue;
+        }
         const base = baseOf(t.symbol);
         buffer.set(base, { symbol: base, last: t.last });
       }

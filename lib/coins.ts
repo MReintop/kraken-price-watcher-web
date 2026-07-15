@@ -8,7 +8,9 @@ export type Coin = {
   symbol: string;
   image: string;
   current_price: number;
-  price_change_percentage_24h: number;
+  // Nullable because CoinGecko's is: it reports null on markets too thin to
+  // measure. A row without a percentage is honest; a row inventing 0.00% is not.
+  price_change_percentage_24h: number | null;
   market_cap: number;
   total_volume: number;
 };
@@ -49,6 +51,42 @@ const METADATA_URL = `${COINGECKO_BASE}/coins/markets?vs_currency=usd&ids=${TRAC
   (coin) => coin.id,
 ).join(',')}&price_change_percentage=24h`;
 
+const isText = (value: unknown): value is string =>
+  typeof value === 'string' && value.length > 0;
+
+const isNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+// The response is JSON, not a promise about JSON — the type above describes what
+// CoinGecko documents, and nothing here has checked it. A missing number becomes
+// NaN in the chart's geometry, and a missing string renders as "undefined".
+//
+// `price_change_percentage_24h` is the exception that is allowed to be absent:
+// CoinGecko really does send null for it on thin markets, and losing a coin's
+// price over a missing percentage would be the worse trade.
+function toCoinMetadata(raw: unknown): CoinMetadata | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const coin = raw as Record<string, unknown>;
+
+  if (!isText(coin.id) || !isText(coin.name) || !isText(coin.symbol)) {
+    return null;
+  }
+  if (!isText(coin.image)) return null;
+  if (!isNumber(coin.market_cap) || !isNumber(coin.total_volume)) return null;
+
+  return {
+    id: coin.id,
+    name: coin.name,
+    symbol: coin.symbol,
+    image: coin.image,
+    market_cap: coin.market_cap,
+    total_volume: coin.total_volume,
+    price_change_percentage_24h: isNumber(coin.price_change_percentage_24h)
+      ? coin.price_change_percentage_24h
+      : null,
+  };
+}
+
 async function fetchCoinMetadata(): Promise<CoinMetadata[]> {
   const response = await fetchWithRetry(METADATA_URL, {
     next: { revalidate: 60 },
@@ -56,7 +94,14 @@ async function fetchCoinMetadata(): Promise<CoinMetadata[]> {
   if (!response.ok) {
     throw new Error(`CoinGecko markets: HTTP ${response.status}`);
   }
-  return response.json();
+
+  const body: unknown = await response.json();
+  if (!Array.isArray(body)) {
+    throw new Error('CoinGecko markets: expected an array');
+  }
+  return body
+    .map(toCoinMetadata)
+    .filter((coin): coin is CoinMetadata => coin !== null);
 }
 
 // Price from Kraken — the same source the live socket and the candles use, so
