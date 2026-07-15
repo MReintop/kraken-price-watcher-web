@@ -1,0 +1,25 @@
+.row {
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+}
+
+.chip,
+.chipSelected {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.chip {
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.chipSelected {
+  background: var(--accent);
+  color: #fff;
+}

@@ -1,0 +1,8 @@
+# Generated / vendored — not ours to format.
+.next/
+coverage/
+playwright-report/
+test-results/
+blob-report/
+node_modules/
+package-lock.json

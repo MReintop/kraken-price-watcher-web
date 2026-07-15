@@ -1,0 +1,31 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.price {
+  color: var(--foreground);
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Change pill: hugs the text, tinted background + colored text (RN CoinCard). */
+.pill {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.pillUp {
+  background: var(--tint-up);
+  color: var(--up);
+}
+
+.pillDown {
+  background: var(--tint-down);
+  color: var(--down);
+}

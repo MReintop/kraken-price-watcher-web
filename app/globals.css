@@ -1,13 +1,21 @@
+/* Dark only. The surfaces below are dark unconditionally, so a light --foreground
+   would land dark-on-dark and disappear. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+  color-scheme: dark;
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #0a0a0a;
+  --foreground: #ededed;
+
+  /* Design tokens, used across component CSS modules via var(--token). */
+  --up: #16c784;
+  --down: #ff5f6a;
+  --border: #232b36;
+  --muted: #9aa6ba;
+  --surface: #151a21;
+  --surface-alt: #1c232c;
+  --accent: #5b5fd9;
+  --tint-up: rgba(22, 199, 132, 0.14);
+  --tint-down: rgba(255, 95, 106, 0.14);
 }
 
 html {
@@ -24,6 +32,7 @@ body {
   min-height: 100%;
   display: flex;
   flex-direction: column;
+  padding-bottom: 72px;
   color: var(--foreground);
   background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
@@ -40,10 +49,4 @@ body {
 a {
   color: inherit;
   text-decoration: none;
-}
-
-@media (prefers-color-scheme: dark) {
-  html {
-    color-scheme: dark;
-  }
 }

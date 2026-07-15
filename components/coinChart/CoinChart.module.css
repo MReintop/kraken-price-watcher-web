@@ -1,0 +1,39 @@
+.wrap {
+  width: 100%;
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.up {
+  color: var(--up);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.down {
+  color: var(--down);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.dim {
+  opacity: 0.4;
+  transition: opacity 0.2s;
+}
+
+.empty {
+  width: 100%;
+  color: var(--muted);
+  font-size: 14px;
+  text-align: center;
+  padding: 40px 0;
+}

@@ -1,0 +1,23 @@
+.svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.grid {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.label {
+  fill: var(--muted);
+}
+
+/* candles use currentColor, set per up/down group */
+.up {
+  color: var(--up);
+}
+
+.down {
+  color: var(--down);
+}

@@ -1,0 +1,101 @@
+/* 1 column, 2 from 376px, 4 from 768px. */
+.list {
+  list-style: none;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+}
+
+@media (min-width: 376px) {
+  .list {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+@media (min-width: 768px) {
+  .list {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* The li is the grid cell; the card stretches to fill it. */
+.list > li {
+  display: flex;
+}
+
+.card {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid transparent; /* reserved so hover border doesn't shift layout */
+  border-radius: 12px;
+  transition:
+    background 0.15s,
+    transform 0.15s;
+}
+
+.card:hover {
+  background: var(--surface-alt);
+  transform: translateY(-2px);
+}
+
+.header {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+}
+
+.identity {
+  flex-shrink: 1;
+  min-width: 0; /* allow the name to ellipsize inside a flex row */
+  display: flex;
+  flex-direction: column;
+}
+
+.name {
+  color: var(--foreground);
+  font-size: 16px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.symbol {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Card-shaped skeleton shown while the list streams in. */
+.cardSkeleton {
+  height: 118px;
+  border-radius: 12px;
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface-alt) 37%,
+    var(--surface) 63%
+  );
+  background-size: 400% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}

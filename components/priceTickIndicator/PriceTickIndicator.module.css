@@ -1,0 +1,21 @@
+.arrow {
+  font-size: 13px;
+  animation: fadeOut 900ms ease-out forwards;
+}
+
+.up {
+  color: var(--up);
+}
+
+.down {
+  color: var(--down);
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
