@@ -1,5 +1,6 @@
 import {
   computeCandleLayout,
+  describeCandles,
   priceDomain,
   niceTicks,
   priceToY,
@@ -47,7 +48,7 @@ export default function CandlestickChart({
       className={styles.svg}
       viewBox={`0 0 ${width} ${height}`}
       role="img"
-      aria-label={`${days}-day candlestick chart`}
+      aria-label={describeCandles(candles, days)}
     >
       {/* Y gridlines + price labels (right axis) */}
       {ticks.map((t, i) => {

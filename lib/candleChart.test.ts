@@ -1,5 +1,6 @@
 import {
   applyLivePrice,
+  describeCandles,
   periodChangePct,
   priceDomain,
   computeCandleLayout,
@@ -81,6 +82,43 @@ describe('candleChart', () => {
 
     // Assert
     expect(result).toEqual([0, 2, 4, 6, 8]);
+  });
+});
+
+describe('describeCandles', () => {
+  it('gives the range and the trend, not just the chart type', () => {
+    // Arrange — opens at 100, closes at 120, spanning 90 to 130
+    const candles = [
+      makeCandle({ o: 100, l: 90, h: 110 }),
+      makeCandle({ c: 120, l: 95, h: 130 }),
+    ];
+
+    // Act
+    const result = describeCandles(candles, 30);
+
+    // Assert — a screen reader gets what the shape shows a sighted reader
+    expect(result).toBe(
+      '30-day candlestick chart, 2 candles. Low $90.00, high $130.00. Up 20.00% over the period.',
+    );
+  });
+
+  it('says down in words rather than leaning on the arrow', () => {
+    // Arrange
+    const candles = [makeCandle({ o: 100 }), makeCandle({ c: 80 })];
+
+    // Act
+    const result = describeCandles(candles, 1);
+
+    // Assert — "▼" is announced as nothing useful
+    expect(result).toContain('Down 20.00% over the period.');
+  });
+
+  it('does not claim a range it has no data for', () => {
+    // Arrange / Act
+    const result = describeCandles([], 365);
+
+    // Assert
+    expect(result).toBe('365-day candlestick chart, no data');
   });
 });
 

@@ -12,8 +12,8 @@
   gap: 8px;
 }
 
-/* Fixed-width slots on each side of the price: keeps the price centered and
-   reserves the arrow's space so it never nudges when it appears (RN tickSlot). */
+/* Reserves the arrow's space on both sides, so the price stays centred and does
+   not nudge sideways the moment a tick arrives. */
 .tickSlot {
   width: 24px;
   display: inline-flex;

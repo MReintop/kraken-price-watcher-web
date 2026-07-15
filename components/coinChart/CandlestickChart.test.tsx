@@ -31,13 +31,14 @@ describe('CandlestickChart', () => {
     expect(svg.querySelectorAll('rect')).toHaveLength(3);
   });
 
-  it('labels itself with the timeframe for screen readers', () => {
+  it('describes its range and trend for screen readers, not just its type', () => {
     // Arrange / Act
     renderChart([makeCandle(), makeCandle()], 365);
 
-    // Assert
+    // Assert — the wording itself is pinned in lib/candleChart.test.ts; here it
+    // only has to reach the element a screen reader actually reads
     expect(
-      screen.getByRole('img', { name: '365-day candlestick chart' }),
+      screen.getByRole('img', { name: /365-day candlestick chart, 2 candles/ }),
     ).toBeInTheDocument();
   });
 

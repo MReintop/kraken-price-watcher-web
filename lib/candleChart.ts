@@ -1,3 +1,5 @@
+import { formatPrice } from './format';
+
 export type Candle = { t: number; o: number; h: number; l: number; c: number };
 
 export function applyLivePrice(candles: Candle[], price?: number): Candle[] {
@@ -17,6 +19,22 @@ export function periodChangePct(candles: Candle[]): number | null {
   const first = candles[0].o;
   if (first === 0) return null;
   return ((candles[candles.length - 1].c - first) / first) * 100;
+}
+
+// A sighted reader gets range and trend from the shape at a glance; "candlestick
+// chart" alone hands a screen reader nothing. Same facts, in words — and in
+// words, not arrows: "▼" is announced as nothing useful.
+export function describeCandles(candles: Candle[], days: number): string {
+  if (candles.length === 0) return `${days}-day candlestick chart, no data`;
+
+  const { min, max } = priceDomain(candles);
+  const change = periodChangePct(candles);
+  const trend =
+    change == null
+      ? ''
+      : ` ${change >= 0 ? 'Up' : 'Down'} ${Math.abs(change).toFixed(2)}% over the period.`;
+
+  return `${days}-day candlestick chart, ${candles.length} candles. Low ${formatPrice(min)}, high ${formatPrice(max)}.${trend}`;
 }
 
 export interface PriceDomain {

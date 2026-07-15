@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
-import Footer from '@/components/footer/Footer';
 import StoreProvider from '@/components/storeProvider/StoreProvider';
 import { getCoins } from '@/lib/coins';
 
@@ -31,10 +30,7 @@ export default async function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
-        <StoreProvider initialCoins={coins}>
-          {children}
-          <Footer />
-        </StoreProvider>
+        <StoreProvider initialCoins={coins}>{children}</StoreProvider>
         <Analytics />
       </body>
     </html>

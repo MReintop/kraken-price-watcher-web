@@ -11,7 +11,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Change pill: hugs the text, tinted background + colored text (RN CoinCard). */
 .pill {
   align-self: flex-start;
   padding: 2px 8px;

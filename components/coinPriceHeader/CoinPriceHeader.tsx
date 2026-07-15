@@ -38,7 +38,9 @@ export default function CoinPriceHeader({ symbol }: CoinPriceHeaderProps) {
         </span>
       </div>
 
-      <span className={styles.badge}>
+      {/* Announced, unlike the price: the feed dying is news, and it changes
+          rarely enough not to talk over anyone. Rapid ticks would. */}
+      <span className={styles.badge} role="status">
         <span className={status === 'live' ? styles.dotLive : styles.dot} />
         {STATUS_LABEL[status]}
       </span>
