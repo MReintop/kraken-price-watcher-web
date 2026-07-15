@@ -1,5 +1,5 @@
 This is **kraken-price-watcher-web** — a React + Next.js application.
-Its sibling **kraken-price-watcher** is the React Native (Expo) one; don't apply its native conventions here.
+Its sibling **kraken-price-watcher** is the React Native (Expo) one; don't apply its native conventions here. Where the two deliberately differ, [docs/store.md](docs/store.md) says why — and a fix that lands in only one of them is drift, not divergence.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

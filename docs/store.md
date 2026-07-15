@@ -51,6 +51,40 @@ app/(markets)/layout.tsx (server component)
 - **Any frame refreshes the watchdog, heartbeats included, and it is armed when the socket opens.** Kraken heartbeats roughly every second when the market is quiet, so silence past `STALE_AFTER_MS` means the connection is dead in a way it hasn't told us about — while a market with no trades is merely quiet, and quiet is not broken. Arming on the first frame instead would mean a socket that opens and says nothing is never watched at all: the exact case worth watching.
 - **Going stale closes the socket.** Reporting a frozen feed and then sitting on it helps no one; the close routes it through the normal reconnect, backoff and all.
 
+## Where this differs from the React Native app, and why
+
+The sibling (`kraken-price-watcher`) is the same product on another surface. The
+differences below are deliberate on both sides — its `docs/store.md` argues the
+same list from its end. Neither app is the other one, behind.
+
+**A factory here, a singleton there.** `makeStore()` exists because a
+module-level store on a server is shared between requests, and one visitor's
+prices would render into another's page. RN has no server and no requests: one
+store per process is the lifetime it wants, and a factory there would be
+cargo-culting a fix for a problem it cannot have.
+
+**`bySymbol` here, `items[]` there.** Both get per-row re-render isolation; only
+the route differs. This app keys by symbol so a selector returns one row's
+price. RN gets the same property from `selectCoinById` plus Immer preserving the
+identity of coins a tick didn't touch — and its render-count test would fail if
+that stopped being true. Normalising there would buy nothing measurable.
+
+**RN pauses on `background`; this app doesn't.** A phone app is backgrounded for
+hours, so RN subscribes to `AppState` and stops reconnecting. A hidden tab is
+not the same thing, and browsers already throttle timers in one. The Page
+Visibility API is the analogue if this ever needs it — it doesn't yet.
+
+**The socket starts in an effect here, in middleware there.** RN starts it on
+`fetchCoins.pending` so a CoinGecko outage cannot hold Kraken's prices hostage.
+This app has no such coupling to break: the symbols come from the server render
+that already happened, and `StoreProvider` freezes them at mount so the effect
+never re-runs. Same guarantee, reached by the shape each platform already had.
+
+Worth naming: RN had jittered reconnects before this app did, and this app's own
+`lib/http.ts` had been arguing for jitter next door the whole time. A fix landing
+in one and not the other is drift, not divergence — the list above is the second
+kind, and it is the only kind that should survive review.
+
 ## Notes
 
 `useAppDispatch` is exported but currently unused — every dispatch comes from the socket, not from a component. That's expected given the design; don't "fix" it by dispatching from components.

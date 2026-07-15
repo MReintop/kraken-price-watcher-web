@@ -50,6 +50,9 @@ let dispatch: jest.Mock;
 
 beforeEach(() => {
   jest.useFakeTimers();
+  // Pinned so the reconnect jitter is a fixed 0.75x and the backoff assertions
+  // below test the backoff rather than the draw.
+  jest.spyOn(Math, 'random').mockReturnValue(0.5);
   FakeWebSocket.instances = [];
   dispatch = jest.fn();
   global.WebSocket = FakeWebSocket as unknown as typeof WebSocket;
@@ -57,6 +60,7 @@ beforeEach(() => {
 
 afterEach(() => {
   jest.useRealTimers();
+  jest.restoreAllMocks();
 });
 
 // Arrange helper: start the ticker, open its socket, and let Kraken accept
@@ -436,6 +440,34 @@ describe('startKrakenTicker', () => {
 
     // Assert — back to a 1s retry, not a compounding one
     expect(FakeWebSocket.instances).toHaveLength(3);
+  });
+
+  // Kraken drops every client at once; returning on a bare doubling brings them
+  // all back in lockstep, at exactly the moment it can least afford it.
+  it('spreads reconnects out rather than returning on the tick', () => {
+    // Arrange — two clients, drawing different jitter
+    jest.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(1);
+    const first = startKrakenTicker(
+      ['btc'],
+      dispatch as unknown as AppDispatch,
+    );
+    const firstSocket = latest();
+    const second = startKrakenTicker(
+      ['btc'],
+      dispatch as unknown as AppDispatch,
+    );
+    const secondSocket = latest();
+    const before = FakeWebSocket.instances.length;
+
+    // Act — both drop together, and only the earliest jitter has elapsed
+    firstSocket.onclose?.();
+    secondSocket.onclose?.();
+    jest.advanceTimersByTime(500);
+
+    // Assert — one is back, the other is not: they no longer retry as one
+    expect(FakeWebSocket.instances.length).toBe(before + 1);
+    first();
+    second();
   });
 
   it('keeps backing off when a connection opens but never acknowledges', () => {

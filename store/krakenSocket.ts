@@ -33,8 +33,14 @@ interface KrakenMessage {
   data?: { symbol: string; last: number }[];
 }
 
+const MAX_BACKOFF_MS = 30_000;
+
 // "BTC/USD" -> "BTC", the form the store is keyed by.
 const baseOf = (pair: string) => pair.split('/')[0];
+
+// Jittered, so a Kraken-side blip does not bring every client back in lockstep —
+// the same argument lib/http.ts already makes for its retries.
+const jittered = (ms: number) => ms / 2 + Math.random() * (ms / 2);
 
 export function startKrakenTicker(
   symbols: string[],
@@ -90,9 +96,9 @@ export function startKrakenTicker(
   const scheduleReconnect = () => {
     if (stopped) return;
     reconnectTimer = setTimeout(() => {
-      backoff = Math.min(backoff * 2, 30_000);
+      backoff = Math.min(backoff * 2, MAX_BACKOFF_MS);
       connect();
-    }, backoff);
+    }, jittered(backoff));
   };
 
   const connect = () => {
