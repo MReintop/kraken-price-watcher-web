@@ -28,11 +28,11 @@ Convention: **`*.test.ts` / `*.test.tsx` for Jest, `*.spec.ts` for Playwright.**
 
 Pick the cheapest test that can answer the question.
 
-| Layer           | Tool               | Lives in                   | Covers                                                                                                                                                                                                                                                | Runs                    |
-| --------------- | ------------------ | -------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
-| **Unit**        | Jest               | `lib/`, `store/`           | Pure logic with real edge cases: chart geometry, tween math, data mapping, and the socket's tick coalescing + reconnect backoff (a fake `WebSocket` + fake timers). No renderer, no browser. Cheap enough to cover edges exhaustively — so do.        | on save, pre-commit, CI |
-| **Integration** | Jest + RTL (jsdom) | `components/**/*.test.tsx` | Client components wired to their _real_ collaborators: real Redux store, real children, real dispatch. Stub only what leaves the process (`fetch`, `next/navigation`, `requestAnimationFrame`, the WebSocket). Most confidence should come from here. | on save, pre-commit, CI |
-| **E2E**         | Playwright         | `e2e/*.spec.ts`            | What nothing cheaper can see: `async` Server Components, routing, SSG/ISR pages, hydration, real route handlers.                                                                                                                                      | pre-push, CI            |
+| Layer           | Tool               | Lives in                   | Covers                                                                                                                                                                                                                                               | Runs                    |
+| --------------- | ------------------ | -------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------- |
+| **Unit**        | Jest               | `lib/`, `store/`           | Pure logic with real edge cases: chart geometry, price formatting, data mapping, and the socket's tick coalescing + reconnect backoff (a fake `WebSocket` + fake timers). No renderer, no browser. Cheap enough to cover edges exhaustively — so do. | on save, pre-commit, CI |
+| **Integration** | Jest + RTL (jsdom) | `components/**/*.test.tsx` | Client components wired to their _real_ collaborators: real Redux store, real children, real dispatch. Stub only what leaves the process (`fetch`, `next/navigation`, the WebSocket). Most confidence should come from here.                         | on save, pre-commit, CI |
+| **E2E**         | Playwright         | `e2e/*.spec.ts`            | What nothing cheaper can see: `async` Server Components, routing, SSG/ISR pages, hydration, real route handlers.                                                                                                                                     | pre-push, CI            |
 
 Don't reach for E2E when an integration test answers the same question — and don't reach for a unit test when the risk is in the wiring rather than the logic.
 
@@ -46,7 +46,7 @@ Per [the Redux testing guide](https://redux.js.org/usage/writing-tests): _"the e
 - **Never** mock selectors or the react-redux hooks. Mock at the network boundary (`fetch`) or the module boundary (`@/store/krakenSocket`) instead.
 - **The exception the guide allows:** a reducer or selector with _genuinely complex_ logic may be unit-tested directly. Ordinary merge/lookup logic is not complex — cover it through a component.
 
-Worked examples: `CoinPriceHeader.test.tsx` covers `tickersApplied`, `socketStatusChanged`, `selectPrice`, and `selectLive` by dispatching into a real store and asserting the DOM. `StoreProvider.test.tsx` covers `seedPricesFromCoins` the same way.
+Worked examples: `CoinPriceHeader.test.tsx` covers `tickersApplied`, `socketStatusChanged`, `selectPrice`, and `selectSocketStatus` by dispatching into a real store and asserting the DOM. `StoreProvider.test.tsx` covers `seedPricesFromCoins` the same way.
 
 ## Server components and the mocking boundary
 
@@ -62,12 +62,13 @@ The coin/candle fetches run in **Node** (RSC and route handlers), so they never 
 
 Currently excluded, all covered in `e2e/` instead:
 
-| Excluded                                                                       | Why                                                               |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------------------- |
-| `app/layout.tsx`, `app/coins/**`                                               | `async` Server Components                                         |
-| `components/markets/Markets.tsx`, `components/marketSummary/MarketSummary.tsx` | `async` Server Components                                         |
-| `app/page.tsx`                                                                 | sync, but renders async children — so it cannot render either     |
-| `app/api/**`                                                                   | route handlers, not components; exercised through the real server |
+| Excluded                                                                       | Why                                                                                                                            |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
+| `app/layout.tsx`, `app/coins/**`                                               | `async` Server Components                                                                                                      |
+| `components/markets/Markets.tsx`, `components/marketSummary/MarketSummary.tsx` | `async` Server Components                                                                                                      |
+| `app/page.tsx`                                                                 | sync, but renders async children — so it cannot render either                                                                  |
+| `app/api/**`                                                                   | route handlers, not components; exercised through the real server                                                              |
+| `app/error.tsx`, `app/global-error.tsx`                                        | Next owns when they mount, and one renders its own `<html>`; the UI they share is `components/errorState`, which Jest does see |
 
 **Adding an `async` Server Component, a page that renders one, or a route handler means adding a `!` line to `collectCoverageFrom`.** The criterion is **async**, not "server" — sync server components (the skeletons) render fine under RTL and stay in.
 

@@ -50,3 +50,19 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+/* Honoured here rather than per component: a live price screen adds motion the
+   way it adds markup, and the next animation would have to remember on its own.
+   Near-zero, not zero — elements that remove themselves on animationend (the
+   tick arrow) still need the event to fire, and a duration of 0 does not
+   reliably deliver it. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

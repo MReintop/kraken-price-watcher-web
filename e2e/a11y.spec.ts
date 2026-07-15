@@ -1,4 +1,12 @@
-import { test, expect, summarise, scanPage } from './fixtures';
+import type { WebSocketRoute } from '@playwright/test';
+import {
+  test,
+  expect,
+  summarise,
+  scanPage,
+  ANY_SOCKET,
+  ackSubscribe,
+} from './fixtures';
 import { PAGE_ROUTES, uncoveredDynamicRoutes, visitableRoutes } from './routes';
 
 // Fails when a dynamic route is added without a sample value to visit it by, so
@@ -45,6 +53,44 @@ test('the markets page stays readable when the OS prefers light', async ({
   // Assert
   expect(summarise(violations)).toEqual([]);
   await context.close();
+});
+
+// A price screen grows motion as it grows: a flash per tick, a shimmer per
+// skeleton, a fading arrow. axe sees none of it, so the single rule that turns
+// it all off is worth a test — the rule is global, so proving it on one
+// animated element proves it for the ones added next.
+test.describe('when the OS asks for less motion', () => {
+  test.use({ contextOptions: { reducedMotion: 'reduce' } });
+
+  test('a price does not animate when it ticks', async ({ page }) => {
+    // Arrange — the flash only exists on a price that changed, so the tick has
+    // to be real: read on load, this assertion passes with the rule deleted
+    const connected = new Promise<WebSocketRoute>((resolve) => {
+      void page.routeWebSocket(ANY_SOCKET, (ws) => {
+        ws.onMessage((raw) => ackSubscribe(ws, raw));
+        resolve(ws);
+      });
+    });
+    await page.goto('/coins/bitcoin');
+    const socket = await connected;
+    await expect(page.getByText('$62,888')).toBeVisible(); // readiness gate
+
+    // Act
+    socket.send(
+      JSON.stringify({
+        channel: 'ticker',
+        data: [{ symbol: 'BTC/USD', last: 63000, change_pct: 1 }],
+      }),
+    );
+    await expect(page.getByText('$63,000')).toBeVisible();
+    const duration = await page
+      .getByText('$63,000')
+      .evaluate((el) => getComputedStyle(el).animationDuration);
+
+    // Assert — near zero, not zero: the tick arrow removes itself on
+    // animationend, and a duration of 0 does not reliably deliver that
+    expect(parseFloat(duration)).toBeLessThan(0.1);
+  });
 });
 
 // States below exist only after an interaction, so a scan on load never sees them.

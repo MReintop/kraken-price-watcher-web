@@ -1,39 +1,42 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import { animateValue } from '@/lib/animate';
+import { useState } from 'react';
 import { formatPrice } from '@/lib/format';
+import styles from './AnimatedPrice.module.css';
 
 interface AnimatedPriceProps {
   value: number;
   className?: string;
-  duration?: number;
 }
 
+// Renders what last traded, immediately. Interpolating between two ticks would
+// put a price on screen that no one paid, and at 250ms a tick the tween never
+// arrived anyway — it just chased. The flash carries the direction instead: it
+// is a cue, so it can lie about nothing.
 export default function AnimatedPrice({
   value,
   className,
-  duration = 1500,
 }: AnimatedPriceProps) {
-  const [text, setText] = useState(() => formatPrice(value));
-  const valueRef = useRef(value); // latest raw (unrounded) value
+  const [previous, setPrevious] = useState(value);
+  const [direction, setDirection] = useState<'up' | 'down' | null>(null);
+  // Remounts the span, which is what restarts a CSS animation already running.
+  const [tick, setTick] = useState(0);
 
-  // Tweens from the last rendered value, so a tick arriving mid-animation
-  // re-targets instead of jumping.
-  useEffect(() => {
-    if (valueRef.current === value) return;
+  if (value !== previous) {
+    setPrevious(value);
+    setDirection(value > previous ? 'up' : 'down');
+    setTick((n) => n + 1);
+  }
 
-    return animateValue({
-      from: valueRef.current,
-      to: value,
-      duration,
-      onFrame: (current) => {
-        valueRef.current = current;
-        const next = formatPrice(current);
-        setText((prev) => (prev === next ? prev : next));
-      },
-    });
-  }, [value, duration]);
+  const flash = direction ? styles[direction] : '';
 
-  return <span className={className}>{text}</span>;
+  return (
+    <span
+      key={tick}
+      className={`${className ?? ''} ${flash}`.trim()}
+      onAnimationEnd={() => setDirection(null)}
+    >
+      {formatPrice(value)}
+    </span>
+  );
 }

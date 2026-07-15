@@ -1,0 +1,27 @@
+/* Colour, not the digits. The number is whatever last traded; only the tint
+   moves, and it is gone by the next tick rather than still chasing it. */
+.up {
+  animation: flashUp 600ms ease-out;
+}
+
+.down {
+  animation: flashDown 600ms ease-out;
+}
+
+@keyframes flashUp {
+  from {
+    color: var(--up);
+  }
+  to {
+    color: inherit;
+  }
+}
+
+@keyframes flashDown {
+  from {
+    color: var(--down);
+  }
+  to {
+    color: inherit;
+  }
+}

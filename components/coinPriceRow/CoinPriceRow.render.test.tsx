@@ -5,19 +5,6 @@ import { makeStore } from '@/store/store';
 import { tickersApplied } from '@/store/pricesSlice';
 import CoinPriceRow from './CoinPriceRow';
 
-const realRaf = global.requestAnimationFrame;
-
-beforeEach(() => {
-  global.requestAnimationFrame = ((cb: FrameRequestCallback) => {
-    cb(1e6);
-    return 1;
-  }) as typeof requestAnimationFrame;
-});
-
-afterEach(() => {
-  global.requestAnimationFrame = realRaf;
-});
-
 // Arrange helper: two rows, each counting its own renders.
 const renderTwoRows = () => {
   const renders = { BTC: 0, ETH: 0 };

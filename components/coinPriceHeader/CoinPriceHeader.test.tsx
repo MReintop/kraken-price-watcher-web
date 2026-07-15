@@ -8,24 +8,6 @@ import {
 } from '@/store/pricesSlice';
 import CoinPriceHeader from './CoinPriceHeader';
 
-// Stubbed so AnimatedPrice's tween lands on its final value at once
-// (cb(1e6) → t = 1).
-const realRaf = global.requestAnimationFrame;
-const realCaf = global.cancelAnimationFrame;
-
-beforeEach(() => {
-  global.requestAnimationFrame = ((cb: FrameRequestCallback) => {
-    cb(1e6);
-    return 1;
-  }) as typeof requestAnimationFrame;
-  global.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
-});
-
-afterEach(() => {
-  global.requestAnimationFrame = realRaf;
-  global.cancelAnimationFrame = realCaf;
-});
-
 // Arrange helper: render the header against a real store in a known state.
 const renderWithStore = (
   bySymbol: Record<string, { last: number; changePct: number }>,

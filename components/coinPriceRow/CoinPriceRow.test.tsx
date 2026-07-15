@@ -4,24 +4,6 @@ import { makeStore } from '@/store/store';
 import { tickersApplied } from '@/store/pricesSlice';
 import CoinPriceRow from './CoinPriceRow';
 
-// Stubbed so AnimatedPrice's tween lands on its final value at once
-// (cb(1e6) → t = 1).
-const realRaf = global.requestAnimationFrame;
-const realCaf = global.cancelAnimationFrame;
-
-beforeEach(() => {
-  global.requestAnimationFrame = ((cb: FrameRequestCallback) => {
-    cb(1e6);
-    return 1;
-  }) as typeof requestAnimationFrame;
-  global.cancelAnimationFrame = (() => {}) as typeof cancelAnimationFrame;
-});
-
-afterEach(() => {
-  global.requestAnimationFrame = realRaf;
-  global.cancelAnimationFrame = realCaf;
-});
-
 // Arrange helper: render the cell against a store preloaded with the given prices.
 const renderWithStore = (
   bySymbol: Record<string, { last: number; changePct: number }>,
