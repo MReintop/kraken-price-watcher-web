@@ -10,10 +10,7 @@ const renderTwoRows = () => {
   const renders = { BTC: 0, ETH: 0 };
   const store = makeStore({
     prices: {
-      bySymbol: {
-        BTC: { last: 62888, changePct: 1 },
-        ETH: { last: 1883, changePct: 1 },
-      },
+      bySymbol: { BTC: 62888, ETH: 1883 },
       status: 'live',
     },
   });
@@ -21,10 +18,10 @@ const renderTwoRows = () => {
   render(
     <Provider store={store}>
       <Profiler id="BTC" onRender={() => (renders.BTC += 1)}>
-        <CoinPriceRow symbol="btc" />
+        <CoinPriceRow symbol="btc" changePct={1} />
       </Profiler>
       <Profiler id="ETH" onRender={() => (renders.ETH += 1)}>
-        <CoinPriceRow symbol="eth" />
+        <CoinPriceRow symbol="eth" changePct={1} />
       </Profiler>
     </Provider>,
   );
@@ -40,9 +37,7 @@ describe('CoinPriceRow re-render isolation', () => {
 
     // Act
     act(() => {
-      store.dispatch(
-        tickersApplied([{ symbol: 'BTC', last: 63000, changePct: 2 }]),
-      );
+      store.dispatch(tickersApplied([{ symbol: 'BTC', last: 63000 }]));
     });
 
     // Assert — the untouched row must not pay for its neighbour's tick
@@ -59,8 +54,8 @@ describe('CoinPriceRow re-render isolation', () => {
     act(() => {
       store.dispatch(
         tickersApplied([
-          { symbol: 'BTC', last: 63000, changePct: 2 },
-          { symbol: 'ETH', last: 1900, changePct: 3 },
+          { symbol: 'BTC', last: 63000 },
+          { symbol: 'ETH', last: 1900 },
         ]),
       );
     });
@@ -77,9 +72,7 @@ describe('CoinPriceRow re-render isolation', () => {
 
     // Act — same values the store already holds
     act(() => {
-      store.dispatch(
-        tickersApplied([{ symbol: 'BTC', last: 62888, changePct: 1 }]),
-      );
+      store.dispatch(tickersApplied([{ symbol: 'BTC', last: 62888 }]));
     });
 
     // Assert

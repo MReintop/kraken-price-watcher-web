@@ -28,7 +28,7 @@ describe('StoreProvider', () => {
     // Act
     render(
       <StoreProvider initialCoins={coins}>
-        <CoinPriceRow symbol="btc" />
+        <CoinPriceRow symbol="btc" changePct={1} />
       </StoreProvider>,
     );
 
@@ -43,7 +43,7 @@ describe('StoreProvider', () => {
     // Act
     render(
       <StoreProvider initialCoins={coins}>
-        <CoinPriceRow symbol="BTC" />
+        <CoinPriceRow symbol="BTC" changePct={1} />
       </StoreProvider>,
     );
 
@@ -61,7 +61,7 @@ describe('StoreProvider', () => {
     // Act
     render(
       <StoreProvider initialCoins={coins}>
-        <CoinPriceRow symbol="eth" />
+        <CoinPriceRow symbol="eth" changePct={1} />
       </StoreProvider>,
     );
 
@@ -73,7 +73,7 @@ describe('StoreProvider', () => {
     // Arrange / Act
     const { container } = render(
       <StoreProvider initialCoins={[]}>
-        <CoinPriceRow symbol="btc" />
+        <CoinPriceRow symbol="btc" changePct={1} />
       </StoreProvider>,
     );
 

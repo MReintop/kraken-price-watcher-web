@@ -53,7 +53,7 @@ export default function CoinChart({
     }
   };
 
-  const folded = applyLivePrice(candles, live?.last);
+  const folded = applyLivePrice(candles, live);
   const change = periodChangePct(folded);
 
   return (

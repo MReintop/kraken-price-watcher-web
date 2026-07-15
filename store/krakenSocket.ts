@@ -26,7 +26,10 @@ interface KrakenMessage {
   // A subscribe reply, one per symbol, carrying success or an error string.
   method?: string;
   success?: boolean;
-  data?: { symbol: string; last: number; change_pct: number }[];
+  // change_pct is deliberately not read: it is Kraken's own spot market, while
+  // the 24h figure on screen is CoinGecko's cross-exchange one. Same window,
+  // different venue — taking it would swap the source under the label.
+  data?: { symbol: string; last: number }[];
 }
 
 export function startKrakenTicker(
@@ -128,11 +131,7 @@ export function startKrakenTicker(
       setStatus('live'); // a frame after silence un-stales
       for (const t of msg.data) {
         const base = t.symbol.split('/')[0]; // "BTC/USD" -> "BTC"
-        buffer.set(base, {
-          symbol: base,
-          last: t.last,
-          changePct: t.change_pct,
-        });
+        buffer.set(base, { symbol: base, last: t.last });
       }
     };
 

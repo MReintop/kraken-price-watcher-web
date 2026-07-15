@@ -4,23 +4,43 @@ import { makeStore } from '@/store/store';
 import { tickersApplied } from '@/store/pricesSlice';
 import CoinPriceRow from './CoinPriceRow';
 
-// Arrange helper: render the cell against a store preloaded with the given prices.
+// Arrange helper: the price comes from the store, the change from a prop —
+// which is the split under test as much as anything else here.
 const renderWithStore = (
-  bySymbol: Record<string, { last: number; changePct: number }>,
+  bySymbol: Record<string, number>,
+  changePct = -1.45,
 ) => {
   const store = makeStore({ prices: { bySymbol, status: 'live' } });
   render(
     <Provider store={store}>
-      <CoinPriceRow symbol="btc" />
+      <CoinPriceRow symbol="btc" changePct={changePct} />
     </Provider>,
   );
   return store;
 };
 
 describe('CoinPriceRow', () => {
+  // Documents the split rather than defends it: the change is a prop, so a tick
+  // has no way to reach it and this cannot fail while that holds. What defends
+  // it is store/krakenSocket.test.ts, where a frame's change_pct can actually
+  // try to get into a dispatch.
+  it('shows a change the price ticks cannot reach', () => {
+    // Arrange
+    const store = renderWithStore({ BTC: 62888 }, -1.45);
+
+    // Act
+    act(() => {
+      store.dispatch(tickersApplied([{ symbol: 'BTC', last: 63000 }]));
+    });
+
+    // Assert — new price from Kraken, the change still CoinGecko's
+    expect(screen.getByText(/63,000/)).toBeInTheDocument();
+    expect(screen.getByText(/1\.45%/)).toBeInTheDocument();
+  });
+
   it('renders the seeded price and change for its symbol', () => {
     // Arrange / Act
-    renderWithStore({ BTC: { last: 62888, changePct: -1.45 } });
+    renderWithStore({ BTC: 62888 });
 
     // Assert
     expect(screen.getByText(/62,888/)).toBeInTheDocument();
@@ -29,13 +49,11 @@ describe('CoinPriceRow', () => {
 
   it('re-renders with the new price when a tick for its symbol arrives', () => {
     // Arrange
-    const store = renderWithStore({ BTC: { last: 62888, changePct: 1 } });
+    const store = renderWithStore({ BTC: 62888 });
 
     // Act
     act(() => {
-      store.dispatch(
-        tickersApplied([{ symbol: 'BTC', last: 63000, changePct: 2 }]),
-      );
+      store.dispatch(tickersApplied([{ symbol: 'BTC', last: 63000 }]));
     });
 
     // Assert
@@ -49,7 +67,7 @@ describe('CoinPriceRow', () => {
     // Act
     const { container } = render(
       <Provider store={store}>
-        <CoinPriceRow symbol="btc" />
+        <CoinPriceRow symbol="btc" changePct={1} />
       </Provider>,
     );
 

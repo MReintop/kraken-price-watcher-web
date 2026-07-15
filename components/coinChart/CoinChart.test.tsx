@@ -32,7 +32,7 @@ const renderChart = ({
 }: { candles?: Candle[]; live?: number } = {}) => {
   const store = makeStore({
     prices: {
-      bySymbol: live != null ? { BTC: { last: live, changePct: 1 } } : {},
+      bySymbol: live != null ? { BTC: live } : {},
       status: 'live',
     },
   });

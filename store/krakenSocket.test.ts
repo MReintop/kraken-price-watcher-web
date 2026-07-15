@@ -138,7 +138,7 @@ describe('startKrakenTicker', () => {
 
     // Assert — stale prices are dropped, not queued
     expect(dispatch).toHaveBeenCalledWith(
-      tickersApplied([{ symbol: 'BTC', last: 99, changePct: 2 }]),
+      tickersApplied([{ symbol: 'BTC', last: 99 }]),
     );
   });
 
@@ -154,7 +154,26 @@ describe('startKrakenTicker', () => {
 
     // Assert — 'BTC/USD' → 'BTC'; a mismatch here renders nothing at all
     expect(dispatch).toHaveBeenCalledWith(
-      tickersApplied([{ symbol: 'BTC', last: 5, changePct: 1 }]),
+      tickersApplied([{ symbol: 'BTC', last: 5 }]),
+    );
+  });
+
+  // The frame carries Kraken's own 24h change. The percentage on screen is
+  // CoinGecko's, measured across exchanges — same window, different market — so
+  // this must arrive at the store carrying the price and nothing else.
+  it("leaves Kraken's own 24h change in the frame it came in", () => {
+    // Arrange
+    startAndSubscribe();
+
+    // Act
+    latest().onmessage?.(
+      tickerMessage([{ symbol: 'BTC/USD', last: 5, change_pct: 99 }]),
+    );
+    jest.advanceTimersByTime(250);
+
+    // Assert — deep equality: an extra field here is the bug
+    expect(dispatch).toHaveBeenCalledWith(
+      tickersApplied([{ symbol: 'BTC', last: 5 }]),
     );
   });
 

@@ -10,7 +10,7 @@ import CoinPriceHeader from './CoinPriceHeader';
 
 // Arrange helper: render the header against a real store in a known state.
 const renderWithStore = (
-  bySymbol: Record<string, { last: number; changePct: number }>,
+  bySymbol: Record<string, number>,
   status: SocketStatus = 'connecting',
 ) => {
   const store = makeStore({ prices: { bySymbol, status } });
@@ -25,7 +25,7 @@ const renderWithStore = (
 describe('CoinPriceHeader', () => {
   it('renders the seeded price for its symbol', () => {
     // Arrange / Act
-    renderWithStore({ BTC: { last: 62888, changePct: -1.45 } });
+    renderWithStore({ BTC: 62888 });
 
     // Assert
     expect(screen.getByText('$62,888')).toBeInTheDocument();
@@ -33,7 +33,7 @@ describe('CoinPriceHeader', () => {
 
   it('reads as connecting until the socket reports itself live', () => {
     // Arrange / Act
-    renderWithStore({ BTC: { last: 62888, changePct: 1 } }, 'connecting');
+    renderWithStore({ BTC: 62888 }, 'connecting');
 
     // Assert
     expect(screen.getByText('Connecting…')).toBeInTheDocument();
@@ -41,7 +41,7 @@ describe('CoinPriceHeader', () => {
 
   it('switches to live when the socket connects', () => {
     // Arrange
-    const store = renderWithStore({ BTC: { last: 62888, changePct: 1 } });
+    const store = renderWithStore({ BTC: 62888 });
 
     // Act
     act(() => {
@@ -55,10 +55,7 @@ describe('CoinPriceHeader', () => {
   // The state the old boolean could not express: connected, and lying.
   it('says so when the feed stops updating, rather than still reading live', () => {
     // Arrange
-    const store = renderWithStore(
-      { BTC: { last: 62888, changePct: 1 } },
-      'live',
-    );
+    const store = renderWithStore({ BTC: 62888 }, 'live');
 
     // Act — the socket is still open, but nothing has arrived for a long time
     act(() => {
@@ -72,10 +69,7 @@ describe('CoinPriceHeader', () => {
 
   it('reads as reconnecting once the socket drops', () => {
     // Arrange
-    const store = renderWithStore(
-      { BTC: { last: 62888, changePct: 1 } },
-      'live',
-    );
+    const store = renderWithStore({ BTC: 62888 }, 'live');
 
     // Act
     act(() => {
@@ -88,13 +82,11 @@ describe('CoinPriceHeader', () => {
 
   it('shows the new price when a tick for its symbol arrives', () => {
     // Arrange
-    const store = renderWithStore({ BTC: { last: 62888, changePct: 1 } });
+    const store = renderWithStore({ BTC: 62888 });
 
     // Act
     act(() => {
-      store.dispatch(
-        tickersApplied([{ symbol: 'BTC', last: 63000, changePct: 2 }]),
-      );
+      store.dispatch(tickersApplied([{ symbol: 'BTC', last: 63000 }]));
     });
 
     // Assert
@@ -103,13 +95,11 @@ describe('CoinPriceHeader', () => {
 
   it('ignores a tick for a different symbol', () => {
     // Arrange
-    const store = renderWithStore({ BTC: { last: 62888, changePct: 1 } });
+    const store = renderWithStore({ BTC: 62888 });
 
     // Act
     act(() => {
-      store.dispatch(
-        tickersApplied([{ symbol: 'ETH', last: 4321, changePct: 9 }]),
-      );
+      store.dispatch(tickersApplied([{ symbol: 'ETH', last: 4321 }]));
     });
 
     // Assert

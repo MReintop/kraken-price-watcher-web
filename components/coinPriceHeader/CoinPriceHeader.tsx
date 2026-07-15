@@ -24,17 +24,17 @@ interface CoinPriceHeaderProps {
 }
 
 export default function CoinPriceHeader({ symbol }: CoinPriceHeaderProps) {
-  const data = useAppSelector(selectPrice(symbol.toUpperCase()));
+  const price = useAppSelector(selectPrice(symbol.toUpperCase()));
   const status = useAppSelector(selectSocketStatus);
-  if (!data) return null;
+  if (price == null) return null;
 
   return (
     <div className={styles.wrap}>
       <div className={styles.priceRow}>
         <span className={styles.tickSlot} />
-        <AnimatedPrice value={data.last} className={styles.price} />
+        <AnimatedPrice value={price} className={styles.price} />
         <span className={styles.tickSlot}>
-          <PriceTickIndicator price={data.last} />
+          <PriceTickIndicator price={price} />
         </span>
       </div>
 

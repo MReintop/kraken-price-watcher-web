@@ -9,7 +9,7 @@ Live cryptocurrency prices, streamed from Kraken's WebSocket feed and rendered o
 ![The markets page: eight coins with live prices and 24-hour change](docs/screenshot.png)
 
 - **One socket, coalesced** — a single Kraken connection for every symbol, buffered into at most one Redux dispatch per 250ms, latest tick per symbol winning.
-- **RSC-first, and it can't regress** — prices are in the HTML on first paint, and an e2e test asserts the markets page makes **zero** client requests for prices.
+- **RSC-first, and it can't regress** — prices are in the HTML on first paint, and an e2e test asserts the markets page makes **zero** client HTTP requests for them. (The socket is the exception it exists for: it keeps the prices live, it does not fetch them.)
 - **Accessibility is driven, not just scanned** — WCAG 2.1 AA across every route, including states you have to interact to reach: the error state, a timeframe switch, client-side navigation.
 - **Byte budgets, not timings** — each route budgets its JS and total transfer a few percent above the current build, because bytes are deterministic and wall-clock isn't.
 - **Hermetic CI** — the e2e suite redirects both REST upstreams _and_ the socket to a stub at build time, so the bundle under test cannot reach the exchange and an outage can't turn the pipeline red.
@@ -22,9 +22,9 @@ A markets page lists eight tracked coins with their price and 24-hour change; ea
 
 **Prices come from exactly one source.** Coin identity (name, icon, market cap) comes from CoinGecko; every _price_ — the initial server render, the candles, and the live ticks — comes from Kraken. Mixing the two would mean two numbers on screen that disagree by a few dollars and no way to say which is right.
 
-**The 24h change is the exception, and deliberately so.** It comes from CoinGecko, because Kraken's REST ticker cannot express it: its `o` field is _today's_ open, so a change derived from it measures however long today has been — at midday it reports a different number, and near midnight a different _sign_. The socket's `change_pct` is a true rolling 24h, so seeding from `o` would mean the figure silently redefined itself the moment the first tick landed. One number, one window, before and after the socket connects.
+**The 24h change is the exception, and it is CoinGecko's alone.** Kraken's REST ticker cannot express a 24h change at all — its `o` is _today's_ open, so a figure derived from it measures however long today has been: a different number at midday, a different _sign_ near midnight. The socket does send a true rolling 24h, but it is Kraken's own spot market, while CoinGecko's is an average across exchanges. Same window, different market — so taking the socket's would swap the source under the label the moment it connected. The change therefore stays CoinGecko's, refreshed on the 30s revalidate, and the socket is not allowed near it: the price and the change do not even share a record, so nothing can quietly overwrite one with the other. The price is Kraken's, because that is the number the candles and the ticks have to agree with.
 
-**The server renders what it can; the client only does what it must.** The markets list and the coin detail pages are Server Components fetching in Node, so prices are in the HTML on first paint rather than after a client round-trip. The only client-side work is the live socket and the chart interaction — and `e2e/performance.spec.ts` asserts the markets page makes **zero** client requests for prices, so that split can't silently regress.
+**The server renders what it can; the client only does what it must.** The markets list and the coin detail pages are Server Components fetching in Node, so prices are in the HTML on first paint rather than after a client round-trip. The only client-side work is the live socket and the chart interaction — and `e2e/performance.spec.ts` asserts the markets page makes **zero** client HTTP requests for prices, so that split can't silently regress. The socket is not one of them: it carries updates to prices already on the page.
 
 **One socket, coalesced.** `store/krakenSocket.ts` opens a single connection for all symbols and buffers ticks into at most one Redux dispatch per 250ms, keeping the latest tick per symbol. Reconnects use exponential backoff.
 
@@ -65,7 +65,7 @@ npm run test:e2e          # end-to-end (playwright), ~40s
 npm run test:e2e:ui       # playwright's interactive/time-travel mode
 ```
 
-`pre-commit` runs prettier and eslint over staged files; `pre-push` runs everything.
+`pre-commit` runs prettier and eslint over staged files; `pre-push` runs both test suites — jest and playwright. Lint and typecheck are CI's job, and CI runs all four.
 
 ### How the three layers are split, and why
 
@@ -116,7 +116,7 @@ Budgets sit a few percent above the current build, not comfortably above it. A b
 
 > Cross-origin resources report `transferSize: 0` unless the server sends `Timing-Allow-Origin`, which is why the stub sets it on the coin icons. Without that header, images silently weigh nothing as far as the budget is concerned.
 
-There's also an architectural assertion: the markets page must make **zero** client requests for prices. If one appears, the server component's work was wasted and the RSC design has quietly regressed into client fetching.
+There's also an architectural assertion: the markets page must make **zero** client HTTP requests for prices. If one appears, the server component's work was wasted and the RSC design has quietly regressed into client fetching.
 
 ### Behaviour under load
 
