@@ -55,10 +55,8 @@ test('the markets page stays readable when the OS prefers light', async ({
   await context.close();
 });
 
-// A price screen grows motion as it grows: a flash per tick, a shimmer per
-// skeleton, a fading arrow. axe sees none of it, so the single rule that turns
-// it all off is worth a test — the rule is global, so proving it on one
-// animated element proves it for the ones added next.
+// axe cannot see motion. The rule that disables it is global, so proving it on
+// one animated element proves it for the ones added next.
 test.describe('when the OS asks for less motion', () => {
   test.use({ contextOptions: { reducedMotion: 'reduce' } });
 

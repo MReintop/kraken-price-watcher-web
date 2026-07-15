@@ -7,20 +7,14 @@ import {
   SocketStatus,
 } from './pricesSlice';
 
-// One connection for every symbol, coalescing ticks into at most one dispatch
-// per FLUSH_MS.
-//
-// Overridable so the e2e build cannot reach the exchange: NEXT_PUBLIC_ is
-// inlined at build time, so a suite built with it set has no route to Kraken at
-// all, rather than relying on every spec remembering to intercept.
+// Overridable so the e2e build has no route to the exchange at all, rather than
+// relying on every spec to remember to intercept.
 const WS_URL =
   process.env.NEXT_PUBLIC_KRAKEN_WS_URL ?? 'wss://ws.kraken.com/v2';
 const FLUSH_MS = 250;
 
-// Kraken heartbeats about every second when nothing else is flowing, so silence
-// this long means the connection is dead in a way it has not told us about —
-// the failure a price screen must never render as "Live". Note the watchdog
-// tracks *frames*, not ticks: a quiet market is not a broken one.
+// Kraken heartbeats about every second, so this much silence means the
+// connection died without saying so. Frames, not ticks: a quiet market is fine.
 const STALE_AFTER_MS = 10_000;
 
 // How long Kraken gets to answer the subscribe. A reply that never comes is a
@@ -34,9 +28,8 @@ interface KrakenMessage {
   method?: string;
   success?: boolean;
   result?: { symbol?: string };
-  // change_pct is deliberately not read: it is Kraken's own spot market, while
-  // the 24h figure on screen is CoinGecko's cross-exchange one. Same window,
-  // different venue — taking it would swap the source under the label.
+  // change_pct is not read: Kraken's own market, where the figure on screen is
+  // CoinGecko's cross-exchange one. Same window, different market.
   data?: { symbol: string; last: number }[];
 }
 
@@ -63,9 +56,8 @@ export function startKrakenTicker(
   let generation = 0;
   let status: SocketStatus = 'connecting';
 
-  // Held locally and compared before dispatching: every frame proves the feed is
-  // live, and re-announcing that per frame would put a dispatch on the hot path
-  // the flush window exists to keep off it.
+  // Compared before dispatching: every frame proves the feed live, and saying so
+  // per frame would put a dispatch on the path FLUSH_MS exists to keep clear.
   const setStatus = (next: SocketStatus) => {
     if (status === next) return;
     status = next;
@@ -83,9 +75,8 @@ export function startKrakenTicker(
     return null;
   };
 
-  // Armed when the socket opens, not on the first frame: a connection that opens
-  // and never says anything is the case worth catching, and waiting for a frame
-  // to start watching for missing frames waits forever.
+  // Armed on open, not on the first frame: waiting for a frame before watching
+  // for missing frames never watches the socket that sends none.
   const armWatchdog = (socket: WebSocket) => {
     staleTimer = stopTimer(staleTimer);
     staleTimer = setTimeout(() => {
@@ -111,11 +102,8 @@ export function startKrakenTicker(
     const mine = ++generation;
     ws = socket;
     setStatus('connecting');
-    // Whatever Kraken refused last time was an answer about a connection that no
-    // longer exists. This one has not answered yet, and a symbol carrying the
-    // last connection's rejection would read as refused by this one — which,
-    // when every symbol is refused and the socket closes without settling, is a
-    // verdict that could outlive every connection that followed it.
+    // The last connection's answer is not this one's, and a total refusal closes
+    // without settling — so its verdict would otherwise outlive it.
     dispatch(subscriptionsSettled([]));
 
     // Kraken answers the subscribe once per symbol. Tracking which ones are
@@ -140,10 +128,8 @@ export function startKrakenTicker(
     };
 
     socket.onopen = () => {
-      // Deliberately not live yet, and the backoff stays where it is: an open
-      // transport says nothing about whether Kraken accepted the subscription.
-      // A server that accepts and immediately closes would otherwise reset the
-      // backoff every cycle and spin at one reconnect a second.
+      // Not live yet, and the backoff stays put: a server that accepts and drops
+      // would otherwise reset it every cycle and spin at a reconnect a second.
       socket.send(
         JSON.stringify({
           method: 'subscribe',
@@ -155,9 +141,8 @@ export function startKrakenTicker(
 
       handshakeTimer = setTimeout(() => {
         if (awaiting.size === 0) return;
-        // Silence is an answer: a symbol Kraken never replied for is one we are
-        // not receiving, and the row should say so rather than show a price that
-        // stopped moving without explanation.
+        // Silence is an answer: unreplied means unsubscribed, and the row should
+        // say so rather than freeze without explanation.
         for (const pair of awaiting) refused.add(pair);
         awaiting.clear();
         settle();
@@ -189,10 +174,8 @@ export function startKrakenTicker(
       if (msg.channel !== 'ticker' || !Array.isArray(msg.data)) return;
       setStatus('live'); // a frame after silence un-stales
       for (const t of msg.data) {
-        // Checked, not trusted: the frame is JSON off a socket. A price that is
-        // not a finite number reaches SVG geometry and draws nothing at all, and
-        // a symbol we never subscribed to has no row to reach — it would just
-        // accumulate in the store under a key nobody reads.
+        // Checked, not trusted — it is JSON off a socket. A NaN draws nothing,
+        // and an unsubscribed symbol has no row to reach.
         if (!subscribedPairs.has(t?.symbol) || !Number.isFinite(t?.last)) {
           continue;
         }

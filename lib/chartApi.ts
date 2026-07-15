@@ -1,10 +1,7 @@
 import type { Candle } from './candleChart';
 
-// The route handler bounds its own upstream calls, but nothing bounds this one:
-// between here and there sit a serverless cold start and whatever the phone is
-// connected to. Unbounded, a stalled request leaves the chart dimmed and busy
-// forever — no error, no retry, no way out but a reload. Failing is
-// recoverable; hanging is not.
+// The route bounds its own upstream calls; nothing bounded this one. Unbounded,
+// a stall leaves the chart dimmed and busy for good. Failing is recoverable.
 const TIMEOUT_MS = 15_000;
 
 export async function fetchCandles(

@@ -23,13 +23,8 @@ const renderWithStore = (
 };
 
 describe('CoinPriceRow', () => {
-  // No test here that a tick leaves the 24h change alone: `changePct` is a prop,
-  // so no tick can reach it whether the code is right or wrong, and a test that
-  // passes either way certifies nothing. The guard is in
-  // store/krakenSocket.test.ts, where a frame's change_pct can actually try to
-  // get into a dispatch.
-  // This is the screen people watch. A price Kraken refused looks exactly like a
-  // live one here — the coin's own page said so, this one did not.
+  // A tick cannot reach `changePct` — it is a prop — so that guard lives in
+  // store/krakenSocket.test.ts, where a frame's change_pct can actually try.
   it('says when a price is not updating, rather than showing it as live', () => {
     // Arrange / Act — the feed is live; Kraken just refused this symbol
     renderWithStore({ BTC: 62888 }, -1.45, ['BTC']);

@@ -9,10 +9,8 @@ interface AnimatedPriceProps {
   className?: string;
 }
 
-// Renders what last traded, immediately. Interpolating between two ticks would
-// put a price on screen that no one paid, and at 250ms a tick the tween never
-// arrived anyway — it just chased. The flash carries the direction instead: it
-// is a cue, so it can lie about nothing.
+// What last traded, immediately: interpolating puts a price on screen that no
+// one paid. The flash carries the direction — a cue can lie about nothing.
 export default function AnimatedPrice({
   value,
   className,

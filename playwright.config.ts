@@ -4,14 +4,9 @@ import { defineConfig, devices } from '@playwright/test';
 const STUB_PORT = 4001;
 const APP_PORT = 3100;
 
-// Both upstreams point at the stub, so the build renders from fixed data. The
-// socket URL is redirected too: inlined at build time, it means the bundle under
-// test carries no route to the real exchange, so a spec that forgets to
-// intercept fails locally instead of quietly trading on live data.
-//
-// Passed through webServer.env rather than written inline in the command:
-// `VAR=value cmd` is shell syntax, and it is not cmd.exe's — inline, the whole
-// suite is simply unrunnable on Windows.
+// Redirected at build time, socket included, so the bundle under test has no
+// route to the exchange. Passed as env, not written inline: `VAR=value cmd` is
+// shell syntax that cmd.exe does not have.
 const stubEnv = {
   COINGECKO_BASE_URL: `http://localhost:${STUB_PORT}/coingecko`,
   KRAKEN_BASE_URL: `http://localhost:${STUB_PORT}/kraken`,

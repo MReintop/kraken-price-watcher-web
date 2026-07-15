@@ -57,13 +57,8 @@ const isText = (value: unknown): value is string =>
 const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
-// The response is JSON, not a promise about JSON — the type above describes what
-// CoinGecko documents, and nothing here has checked it. A missing number becomes
-// NaN in the chart's geometry, and a missing string renders as "undefined".
-//
-// `price_change_percentage_24h` is the exception that is allowed to be absent:
-// CoinGecko really does send null for it on thin markets, and losing a coin's
-// price over a missing percentage would be the worse trade.
+// The type above is what CoinGecko documents, not what it sent. The change is
+// allowed to be null — it really does send that on thin markets.
 function toCoinMetadata(raw: unknown): CoinMetadata | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const coin = raw as Record<string, unknown>;
@@ -104,10 +99,8 @@ async function fetchCoinMetadata(): Promise<CoinMetadata[]> {
     .filter((coin): coin is CoinMetadata => coin !== null);
 }
 
-// Price from Kraken — the same source the live socket and the candles use, so
-// every price in the app comes from one place. The 24h change stays CoinGecko's:
-// it is the only upstream here that measures a rolling 24 hours, which is the
-// window the socket's change_pct uses once it takes over.
+// Price from Kraken, the same source as the socket and the candles. The change
+// stays CoinGecko's and the socket never touches it: same window, other market.
 export async function getCoins(): Promise<Coin[]> {
   const [metadata, prices] = await Promise.all([
     fetchCoinMetadata(),

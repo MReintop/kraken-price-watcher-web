@@ -26,10 +26,8 @@ async function krakenGet<T>(path: string, revalidate: number): Promise<T> {
   return body.result;
 }
 
-// `c` is [last trade price, lot volume]. `o` is deliberately unused: it is
-// *today's* open (since midnight UTC), so a change derived from it measures
-// however long today has been — not 24 hours. This endpoint cannot express a
-// 24h change at all.
+// `c` is [last trade price, lot volume]. `o` is unused: it is *today's* open, so
+// a change from it measures however long today has been, not 24 hours.
 type TickerResult = Record<string, { c: [string, string] }>;
 
 // The response is JSON, not a promise about JSON: the types above describe what

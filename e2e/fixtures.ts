@@ -42,10 +42,8 @@ export const test = base.extend<{
   makeAxeBuilder: () => AxeBuilder;
   stubbedSocket: void;
 }>({
-  // Automatic, and deliberately not opt-in — a spec cannot forget it. Belt and
-  // braces with the redirected build URL: nothing here reaches the exchange. A
-  // spec that wants to drive ticks registers its own route on top; the later
-  // registration wins.
+  // Automatic, so a spec cannot forget it. One that wants to drive ticks
+  // registers its own route on top; the later registration wins.
   stubbedSocket: [
     async ({ page }, use) => {
       await page.routeWebSocket(ANY_SOCKET, (ws) => {

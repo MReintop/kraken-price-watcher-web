@@ -12,17 +12,14 @@ export interface KrakenTick {
 // boolean cannot express — connected, believed healthy, and silently frozen.
 export type SocketStatus = 'connecting' | 'live' | 'stale' | 'offline';
 
-// The last traded price per symbol, and nothing else. The 24h change is not
-// here on purpose: it is CoinGecko's, it is server data, and the moment it sits
-// beside a Kraken price in one record something will overwrite it with Kraken's
-// — a different venue under the same label. It reaches the row as a prop.
+// The last traded price and nothing else. The 24h change is CoinGecko's and
+// server data, so it reaches the row as a prop — beside a Kraken price in one
+// record, something eventually overwrites it with Kraken's.
 export interface PricesState {
   bySymbol: Record<string, number>;
   status: SocketStatus;
-  // Symbols Kraken refused to subscribe, or never answered for. The connection
-  // can be perfectly healthy while one instrument is not: a single global flag
-  // cannot say *which* price is frozen, and "which one" is the only version of
-  // the question worth answering.
+  // Symbols Kraken refused, or never answered for. The connection can be healthy
+  // while one instrument is not, and a global flag cannot say which.
   unavailable: string[];
 }
 

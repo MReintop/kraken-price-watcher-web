@@ -17,11 +17,8 @@ const config = {
   // More reliable than babel-istanbul under the SWC transform.
   coverageProvider: 'v8',
   coverageDirectory: '<rootDir>/coverage',
-  // A floor just under the current numbers, for the same reason the byte budgets
-  // sit just above the current build: a threshold with room to spare reports
-  // nothing until something catastrophic. Reported-but-not-enforced coverage
-  // decays quietly, which is the failure mode the excluded list already fights.
-  // Raise these when the real number rises; lower them only with a reason.
+  // Just under the current numbers, like the byte budgets sit just above the
+  // current build: a threshold with room to spare reports nothing. Raise with it.
   coverageThreshold: {
     global: {
       statements: 99,
@@ -39,12 +36,8 @@ const config = {
     'store/**/*.{ts,tsx}',
     '!**/*.test.{ts,tsx}',
     '!**/*.d.ts',
-    // async Server Components: RTL cannot render them.
-    //
-    // The parentheses are escaped because a route group's name is also glob
-    // syntax: unescaped, `(markets)` is a one-branch group matching the literal
-    // `markets`, so these patterns silently match nothing and the files they
-    // name read 0% instead of being excluded.
+    // async Server Components: RTL cannot render them. Parens escaped — a route
+    // group's name is glob syntax, and unescaped these match nothing at all.
     '!app/\\(markets\\)/layout.tsx',
     '!app/\\(markets\\)/coins/**',
     '!components/markets/Markets.tsx',

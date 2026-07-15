@@ -89,11 +89,9 @@ const markets = () =>
     price_change_percentage_24h: coin.change24h,
   }));
 
-// Kraken /Ticker: `c` is [last, lotVolume]. `o` is *today's* open — a window
-// that grows from zero at midnight UTC, not 24 hours. It is served because the
-// real API serves it, and set to disagree with change24h on purpose: deriving a
-// 24h change from it puts every coin in a narrow green band, which is both
-// wrong and exactly what that bug looks like in the wild.
+// `o` is *today's* open, served because the real API serves it and set to
+// disagree with change24h on purpose: derive a 24h change from it and every coin
+// lands in a narrow green band, which is what that bug looks like in the wild.
 const ticker = (requested) => {
   const wanted = new Set(requested.split(','));
   return Object.fromEntries(

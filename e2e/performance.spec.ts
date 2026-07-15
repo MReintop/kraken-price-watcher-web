@@ -1,17 +1,7 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
 import { test, expect, ANY_SOCKET, ackSubscribe } from './fixtures';
 
-// ---------------------------------------------------------------------------
-// Payload budgets
-//
-// Bytes, not milliseconds. Wall-clock numbers depend on the machine and what
-// else it is doing, so a threshold loose enough not to flake is loose enough to
-// catch nothing. Bytes are deterministic, and bytes are what regress: one stray
-// import of a heavy library into a client component is invisible until measured.
-//
-// Ratcheted just above the current build. Raise them deliberately and only with
-// a reason — a number that only ever goes up is not a budget.
-// ---------------------------------------------------------------------------
+// Ratcheted a few percent above the current build: raise one only with a reason.
 const BUDGET_KB = {
   '/': { js: 170, total: 228 },
   '/coins/bitcoin': { js: 172, total: 228 },
@@ -73,19 +63,6 @@ test('the markets list is server-rendered, costing no client request for prices'
   expect(apiCalls).toEqual([]);
 });
 
-// ---------------------------------------------------------------------------
-// Behaviour under load
-//
-// Correctness while ticks pour in, not timing. Main-thread jank is not
-// measurable here: with the socket's coalescing removed entirely, 500 ticks
-// still produce no long task, so any such assertion would pass either way. That
-// the coalescing works is asserted in store/krakenSocket.test.ts, where the
-// dispatches can actually be counted.
-//
-// routeWebSocket takes over the Kraken socket, so these ticks are ours: same
-// count, same values, every run. This route is registered after the fixture's
-// default one and takes precedence over it.
-// ---------------------------------------------------------------------------
 const tickFrame = (symbol: string, last: number) =>
   JSON.stringify({
     channel: 'ticker',

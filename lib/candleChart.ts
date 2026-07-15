@@ -21,9 +21,8 @@ export function periodChangePct(candles: Candle[]): number | null {
   return ((candles[candles.length - 1].c - first) / first) * 100;
 }
 
-// A sighted reader gets range and trend from the shape at a glance; "candlestick
-// chart" alone hands a screen reader nothing. Same facts, in words — and in
-// words, not arrows: "▼" is announced as nothing useful.
+// The shape gives a sighted reader range and trend; "candlestick chart" gives a
+// screen reader nothing. In words, not arrows — "▼" announces as nothing.
 export function describeCandles(candles: Candle[], days: number): string {
   if (candles.length === 0) return `${days}-day candlestick chart, no data`;
 
@@ -48,10 +47,8 @@ export function priceDomain(candles: Candle[]): PriceDomain {
   const max = Math.max(...candles.map((c) => c.h));
   if (min !== max) return { min, max };
 
-  // A market that did not move has no range to scale against, and a zero range
-  // has to be substituted for somewhere downstream — which lands every candle on
-  // the floor of the plot, drawn as if the price had collapsed. Padding around
-  // the price puts the flat line through the middle, where it belongs.
+  // A flat market has no range to scale against, and the substitute lands every
+  // candle on the floor — a market that did not move, drawn as one that crashed.
   const pad = Math.abs(min) * 0.001 || 1;
   return { min: min - pad, max: max + pad };
 }

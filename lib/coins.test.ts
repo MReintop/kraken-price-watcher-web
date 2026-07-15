@@ -132,10 +132,8 @@ describe('getCoins', () => {
     expect(coins[0].current_price).toBe(64788);
   });
 
-  // The window has to match the socket's change_pct, which is a rolling 24h.
-  // Kraken's REST ticker only offers `o`, today's open, so a change derived from
-  // it would measure however long today has been and be silently corrected by
-  // the first tick — wrong magnitude, and around midnight the wrong sign.
+  // Kraken's REST offers only `o`, today's open — a change from it measures
+  // however long today has been, and near midnight gets the sign wrong.
   it('takes the 24h change from CoinGecko, the only rolling-24h source', async () => {
     // Arrange / Act
     const coins = await getCoins();

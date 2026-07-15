@@ -1,7 +1,5 @@
-// One row per timeframe: the label the UI shows, and the geometry Kraken needs
-// (it buckets by minutes-per-candle, so an interval plus how many to keep).
-// Held together because split apart, a button can exist with no interval behind
-// it and silently render another timeframe's data under its label.
+// The label the UI shows and the geometry Kraken needs, in one row: split apart,
+// a button can exist with no interval and render another timeframe's data.
 export const TIMEFRAMES = [
   { days: 1, label: '24H', interval: 60, points: 24 },
   { days: 30, label: '1M', interval: 1440, points: 30 },
