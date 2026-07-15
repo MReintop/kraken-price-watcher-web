@@ -34,6 +34,7 @@ const renderChart = ({
     prices: {
       bySymbol: live != null ? { BTC: live } : {},
       status: 'live',
+      unavailable: [],
     },
   });
   const view = render(

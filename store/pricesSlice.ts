@@ -19,9 +19,18 @@ export type SocketStatus = 'connecting' | 'live' | 'stale' | 'offline';
 export interface PricesState {
   bySymbol: Record<string, number>;
   status: SocketStatus;
+  // Symbols Kraken refused to subscribe, or never answered for. The connection
+  // can be perfectly healthy while one instrument is not: a single global flag
+  // cannot say *which* price is frozen, and "which one" is the only version of
+  // the question worth answering.
+  unavailable: string[];
 }
 
-const initialState: PricesState = { bySymbol: {}, status: 'connecting' };
+const initialState: PricesState = {
+  bySymbol: {},
+  status: 'connecting',
+  unavailable: [],
+};
 
 export function seedPricesFromCoins(coins: Coin[]): PricesState {
   return {
@@ -31,6 +40,7 @@ export function seedPricesFromCoins(coins: Coin[]): PricesState {
     // The seed is server data, not a feed. Only an acknowledged subscription
     // may promote this to live.
     status: 'connecting',
+    unavailable: [],
   };
 }
 
@@ -49,13 +59,24 @@ const pricesSlice = createSlice({
     socketStatusChanged(state, action: PayloadAction<SocketStatus>) {
       state.status = action.payload;
     },
+    // Sent once per connection, when every symbol has been answered for or the
+    // handshake deadline has passed.
+    subscriptionsSettled(state, action: PayloadAction<string[]>) {
+      state.unavailable = action.payload;
+    },
   },
 });
 
-export const { tickersApplied, socketStatusChanged } = pricesSlice.actions;
+export const { tickersApplied, socketStatusChanged, subscriptionsSettled } =
+  pricesSlice.actions;
 export default pricesSlice.reducer;
 
 // Per-symbol, so a tick re-renders exactly the row it belongs to.
 export const selectPrice = (symbol: string) => (s: RootState) =>
   s.prices.bySymbol[symbol];
 export const selectSocketStatus = (s: RootState) => s.prices.status;
+
+// A boolean per symbol rather than the array itself: a component re-renders when
+// its own answer changes, not whenever any other symbol's does.
+export const selectIsUnavailable = (symbol: string) => (s: RootState) =>
+  s.prices.unavailable.includes(symbol);

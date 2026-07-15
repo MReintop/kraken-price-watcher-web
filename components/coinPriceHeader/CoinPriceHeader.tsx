@@ -3,6 +3,7 @@
 import { useAppSelector } from '@/store/hooks';
 import {
   selectSocketStatus,
+  selectIsUnavailable,
   selectPrice,
   type SocketStatus,
 } from '@/store/pricesSlice';
@@ -10,13 +11,15 @@ import AnimatedPrice from '@/components/animatedPrice/AnimatedPrice';
 import PriceTickIndicator from '@/components/priceTickIndicator/PriceTickIndicator';
 import styles from './CoinPriceHeader.module.css';
 
-// "Stale" is the one worth spelling out: the socket is open and the price on
-// screen is old, which is the state a Live badge would lie about.
-const STATUS_LABEL: Record<SocketStatus, string> = {
+// "Not updating" and "Not available" are the two worth spelling out: the socket
+// is open and this price is old — either because nothing is arriving at all, or
+// because Kraken never agreed to send this one. A Live badge covers both.
+const STATUS_LABEL: Record<SocketStatus | 'unavailable', string> = {
   connecting: 'Connecting…',
   live: 'Live',
   stale: 'Not updating',
   offline: 'Reconnecting…',
+  unavailable: 'Not available',
 };
 
 interface CoinPriceHeaderProps {
@@ -25,8 +28,15 @@ interface CoinPriceHeaderProps {
 
 export default function CoinPriceHeader({ symbol }: CoinPriceHeaderProps) {
   const price = useAppSelector(selectPrice(symbol.toUpperCase()));
-  const status = useAppSelector(selectSocketStatus);
+  const socketStatus = useAppSelector(selectSocketStatus);
+  const unavailable = useAppSelector(selectIsUnavailable(symbol.toUpperCase()));
   if (price == null) return null;
+
+  // The feed can be live and this instrument still not on it. A global "Live"
+  // over a price Kraken never agreed to send is the lie worth catching here.
+  const status: SocketStatus | 'unavailable' = unavailable
+    ? 'unavailable'
+    : socketStatus;
 
   return (
     <div className={styles.wrap}>

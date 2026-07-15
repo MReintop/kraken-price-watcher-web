@@ -1,6 +1,7 @@
 import type { AppDispatch } from './store';
 import {
   socketStatusChanged,
+  subscriptionsSettled,
   tickersApplied,
   KrakenTick,
   SocketStatus,
@@ -18,19 +19,29 @@ const FLUSH_MS = 250;
 
 // Kraken heartbeats about every second when nothing else is flowing, so silence
 // this long means the connection is dead in a way it has not told us about —
-// the failure a price screen must never render as "Live".
+// the failure a price screen must never render as "Live". Note the watchdog
+// tracks *frames*, not ticks: a quiet market is not a broken one.
 const STALE_AFTER_MS = 10_000;
+
+// How long Kraken gets to answer the subscribe. A reply that never comes is a
+// symbol we are not subscribed to, and saying so beats waiting forever.
+const HANDSHAKE_MS = 5000;
 
 interface KrakenMessage {
   channel?: string;
-  // A subscribe reply, one per symbol, carrying success or an error string.
+  // A subscribe reply — one per symbol, and `result.symbol` says which. Reading
+  // only `success` is how one accepted symbol comes to speak for eight.
   method?: string;
   success?: boolean;
+  result?: { symbol?: string };
   // change_pct is deliberately not read: it is Kraken's own spot market, while
   // the 24h figure on screen is CoinGecko's cross-exchange one. Same window,
   // different venue — taking it would swap the source under the label.
   data?: { symbol: string; last: number }[];
 }
+
+// "BTC/USD" -> "BTC", the form the store is keyed by.
+const baseOf = (pair: string) => pair.split('/')[0];
 
 export function startKrakenTicker(
   symbols: string[],
@@ -43,6 +54,7 @@ export function startKrakenTicker(
   let flushTimer: ReturnType<typeof setInterval> | null = null;
   let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   let staleTimer: ReturnType<typeof setTimeout> | null = null;
+  let handshakeTimer: ReturnType<typeof setTimeout> | null = null;
   let backoff = 1000;
   let stopped = false;
   // Bumped per connection, so a frame from a socket we have already replaced can
@@ -70,11 +82,16 @@ export function startKrakenTicker(
     return null;
   };
 
-  // Any frame proves the connection is alive — a heartbeat as much as a tick.
-  const markFresh = () => {
+  // Armed when the socket opens, not on the first frame: a connection that opens
+  // and never says anything is the case worth catching, and waiting for a frame
+  // to start watching for missing frames waits forever.
+  const armWatchdog = (socket: WebSocket) => {
     staleTimer = stopTimer(staleTimer);
     staleTimer = setTimeout(() => {
       setStatus('stale');
+      // Say it, then fix it. Closing routes this through the reconnect path
+      // rather than leaving a half-open socket frozen and believed.
+      socket.close();
     }, STALE_AFTER_MS);
   };
 
@@ -94,6 +111,27 @@ export function startKrakenTicker(
     ws = socket;
     setStatus('connecting');
 
+    // Kraken answers the subscribe once per symbol. Tracking which ones are
+    // still outstanding is what stops the first "yes" speaking for all of them.
+    const awaiting = new Set(pairs);
+    const refused = new Set<string>();
+
+    const settle = () => {
+      if (awaiting.size > 0) return;
+      handshakeTimer = stopTimer(handshakeTimer);
+
+      if (refused.size === pairs.length) {
+        // Subscribed to nothing. The transport is fine and useless; close it and
+        // let the backoff decide when to try again — without resetting it.
+        socket.close();
+        return;
+      }
+
+      backoff = 1000; // at least one symbol is genuinely subscribed
+      dispatch(subscriptionsSettled([...refused].map(baseOf)));
+      setStatus('live');
+    };
+
     socket.onopen = () => {
       // Deliberately not live yet, and the backoff stays where it is: an open
       // transport says nothing about whether Kraken accepted the subscription.
@@ -106,6 +144,17 @@ export function startKrakenTicker(
         }),
       );
       flushTimer = setInterval(flush, FLUSH_MS);
+      armWatchdog(socket);
+
+      handshakeTimer = setTimeout(() => {
+        if (awaiting.size === 0) return;
+        // Silence is an answer: a symbol Kraken never replied for is one we are
+        // not receiving, and the row should say so rather than show a price that
+        // stopped moving without explanation.
+        for (const pair of awaiting) refused.add(pair);
+        awaiting.clear();
+        settle();
+      }, HANDSHAKE_MS);
     };
 
     socket.onmessage = (event) => {
@@ -118,19 +167,22 @@ export function startKrakenTicker(
         return;
       }
 
-      markFresh();
+      armWatchdog(socket);
 
       if (msg.method === 'subscribe') {
-        if (!msg.success) return; // a rejected symbol must not read as live
-        backoff = 1000; // an acknowledged connection is the only healthy one
-        setStatus('live');
+        const pair = msg.result?.symbol;
+        // Without a symbol there is no telling who was answered for; the
+        // handshake deadline is what covers this rather than a guess.
+        if (!pair || !awaiting.delete(pair)) return;
+        if (!msg.success) refused.add(pair);
+        settle();
         return;
       }
 
       if (msg.channel !== 'ticker' || !Array.isArray(msg.data)) return;
       setStatus('live'); // a frame after silence un-stales
       for (const t of msg.data) {
-        const base = t.symbol.split('/')[0]; // "BTC/USD" -> "BTC"
+        const base = baseOf(t.symbol);
         buffer.set(base, { symbol: base, last: t.last });
       }
     };
@@ -146,6 +198,7 @@ export function startKrakenTicker(
         flushTimer = null;
       }
       staleTimer = stopTimer(staleTimer);
+      handshakeTimer = stopTimer(handshakeTimer);
       scheduleReconnect();
     };
 
@@ -161,6 +214,7 @@ export function startKrakenTicker(
     if (flushTimer) clearInterval(flushTimer);
     if (reconnectTimer) clearTimeout(reconnectTimer);
     staleTimer = stopTimer(staleTimer);
+    handshakeTimer = stopTimer(handshakeTimer);
     ws?.close();
   };
 }

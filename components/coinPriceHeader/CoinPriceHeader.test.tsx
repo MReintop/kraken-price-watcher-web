@@ -13,7 +13,7 @@ const renderWithStore = (
   bySymbol: Record<string, number>,
   status: SocketStatus = 'connecting',
 ) => {
-  const store = makeStore({ prices: { bySymbol, status } });
+  const store = makeStore({ prices: { bySymbol, status, unavailable: [] } });
   render(
     <Provider store={store}>
       <CoinPriceHeader symbol="btc" />
@@ -80,6 +80,51 @@ describe('CoinPriceHeader', () => {
     expect(screen.getByText('Reconnecting…')).toBeInTheDocument();
   });
 
+  // The feed can be live and this instrument still not on it. A global status
+  // has no way to say that, which is why the refused symbols are named.
+  it('does not read live for a symbol Kraken refused, while the feed is live', () => {
+    // Arrange
+    const store = makeStore({
+      prices: {
+        bySymbol: { BTC: 62888 },
+        status: 'live',
+        unavailable: ['BTC'],
+      },
+    });
+
+    // Act
+    render(
+      <Provider store={store}>
+        <CoinPriceHeader symbol="btc" />
+      </Provider>,
+    );
+
+    // Assert — the socket is live; this price is not
+    expect(screen.getByText('Not available')).toBeInTheDocument();
+    expect(screen.queryByText('Live')).not.toBeInTheDocument();
+  });
+
+  it('reads live for a symbol Kraken did accept', () => {
+    // Arrange
+    const store = makeStore({
+      prices: {
+        bySymbol: { BTC: 62888 },
+        status: 'live',
+        unavailable: ['ETH'],
+      },
+    });
+
+    // Act
+    render(
+      <Provider store={store}>
+        <CoinPriceHeader symbol="btc" />
+      </Provider>,
+    );
+
+    // Assert — a neighbour's rejection is not this row's problem
+    expect(screen.getByText('Live')).toBeInTheDocument();
+  });
+
   it('shows the new price when a tick for its symbol arrives', () => {
     // Arrange
     const store = renderWithStore({ BTC: 62888 });
@@ -108,7 +153,9 @@ describe('CoinPriceHeader', () => {
 
   it('renders nothing when its symbol is absent from the store', () => {
     // Arrange
-    const store = makeStore({ prices: { bySymbol: {}, status: 'live' } });
+    const store = makeStore({
+      prices: { bySymbol: {}, status: 'live', unavailable: [] },
+    });
 
     // Act
     const { container } = render(

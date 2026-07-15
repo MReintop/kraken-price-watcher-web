@@ -12,6 +12,7 @@ const renderTwoRows = () => {
     prices: {
       bySymbol: { BTC: 62888, ETH: 1883 },
       status: 'live',
+      unavailable: [],
     },
   });
 
