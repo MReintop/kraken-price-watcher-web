@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'Kraken Price Watcher',
-  description: 'Live crypto prices — Next.js App Router capstone',
+  description: 'Live cryptocurrency prices, streamed from Kraken.',
 };
 
 export default async function RootLayout({
