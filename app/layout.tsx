@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import Footer from '@/components/footer/Footer';
 import StoreProvider from '@/components/storeProvider/StoreProvider';
@@ -34,6 +35,7 @@ export default async function RootLayout({
           {children}
           <Footer />
         </StoreProvider>
+        <Analytics />
       </body>
     </html>
   );
