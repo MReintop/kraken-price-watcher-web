@@ -42,7 +42,7 @@ describe('CoinPriceHeader', () => {
     renderWithStore({ BTC: { last: 62888, changePct: -1.45 } });
 
     // Assert
-    expect(screen.getByText('$62,888.00')).toBeInTheDocument();
+    expect(screen.getByText('$62,888')).toBeInTheDocument();
   });
 
   it('reads as connecting until the socket reports itself live', () => {
@@ -81,7 +81,7 @@ describe('CoinPriceHeader', () => {
     });
 
     // Assert
-    expect(screen.getByText('$63,000.00')).toBeInTheDocument();
+    expect(screen.getByText('$63,000')).toBeInTheDocument();
   });
 
   it('ignores a tick for a different symbol', () => {
@@ -96,7 +96,7 @@ describe('CoinPriceHeader', () => {
     });
 
     // Assert
-    expect(screen.getByText('$62,888.00')).toBeInTheDocument();
+    expect(screen.getByText('$62,888')).toBeInTheDocument();
   });
 
   it('renders nothing when its symbol is absent from the store', () => {

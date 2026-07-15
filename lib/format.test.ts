@@ -1,7 +1,7 @@
 import { formatPrice, formatSignedPct } from './format';
 
 describe('formatPrice', () => {
-  it('groups thousands and always shows two decimals', () => {
+  it('groups thousands and shows cents for a mid-range price', () => {
     // Arrange / Act
     const result = formatPrice(1234.5);
 
@@ -15,6 +15,37 @@ describe('formatPrice', () => {
 
     // Assert
     expect(result).toBe('$10.00');
+  });
+
+  // At two decimals a real tick on a sub-$1 asset moves nothing on screen.
+  it('keeps enough precision for a sub-$1 asset to visibly tick', () => {
+    // Arrange / Act — a ~2% dogecoin move
+    const before = formatPrice(0.0712);
+    const after = formatPrice(0.0698);
+
+    // Assert
+    expect(before).toBe('$0.0712');
+    expect(after).not.toBe(before);
+  });
+
+  it('drops cents once they are noise', () => {
+    // Arrange / Act
+    const result = formatPrice(62888);
+
+    // Assert
+    expect(result).toBe('$62,888');
+  });
+
+  // Decimals follow magnitude, not the value: a tween crossing 9,999.99 -> 10,000
+  // would otherwise drop two decimals mid-animation.
+  it('does not change decimals for values of the same magnitude', () => {
+    // Arrange / Act
+    const low = formatPrice(1000.5);
+    const high = formatPrice(9999.99);
+
+    // Assert — both two decimals
+    expect(low).toBe('$1,000.50');
+    expect(high).toBe('$9,999.99');
   });
 
   // The exact-output tests above pass on an en-US runner whether the locale is

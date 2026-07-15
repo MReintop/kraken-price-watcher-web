@@ -33,7 +33,7 @@ describe('StoreProvider', () => {
     );
 
     // Assert — no spinner, no client round-trip: the value is there on render 1
-    expect(screen.getByText('$62,888.00')).toBeInTheDocument();
+    expect(screen.getByText('$62,888')).toBeInTheDocument();
   });
 
   it("upper-cases seeded symbols to match the socket's, so a lower-case id still resolves", () => {
@@ -48,7 +48,7 @@ describe('StoreProvider', () => {
     );
 
     // Assert — a casing mismatch here would silently render nothing
-    expect(screen.getByText('$62,888.00')).toBeInTheDocument();
+    expect(screen.getByText('$62,888')).toBeInTheDocument();
   });
 
   it('seeds every coin it is given', () => {

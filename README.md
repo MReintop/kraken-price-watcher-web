@@ -12,7 +12,7 @@ Live cryptocurrency prices, streamed from Kraken's WebSocket feed and rendered o
 - **RSC-first, and it can't regress** — prices are in the HTML on first paint, and an e2e test asserts the markets page makes **zero** client requests for prices.
 - **Accessibility is driven, not just scanned** — WCAG 2.1 AA across every route, including states you have to interact to reach: the error state, a timeframe switch, client-side navigation.
 - **Byte budgets, not timings** — each route budgets its JS and total transfer a few percent above the current build, because bytes are deterministic and wall-clock isn't.
-- **Hermetic CI** — the e2e suite builds against a stub upstream, so an outage at CoinGecko or Kraken can't turn the pipeline red.
+- **Hermetic CI** — the e2e suite redirects both REST upstreams _and_ the socket to a stub at build time, so the bundle under test cannot reach the exchange and an outage can't turn the pipeline red.
 
 ## What it does
 
@@ -21,6 +21,8 @@ A markets page lists eight tracked coins with their price and 24-hour change; ea
 ## How it's built
 
 **Prices come from exactly one source.** Coin identity (name, icon, market cap) comes from CoinGecko; every _price_ — the initial server render, the candles, and the live ticks — comes from Kraken. Mixing the two would mean two numbers on screen that disagree by a few dollars and no way to say which is right.
+
+**The 24h change is the exception, and deliberately so.** It comes from CoinGecko, because Kraken's REST ticker cannot express it: its `o` field is _today's_ open, so a change derived from it measures however long today has been — at midday it reports a different number, and near midnight a different _sign_. The socket's `change_pct` is a true rolling 24h, so seeding from `o` would mean the figure silently redefined itself the moment the first tick landed. One number, one window, before and after the socket connects.
 
 **The server renders what it can; the client only does what it must.** The markets list and the coin detail pages are Server Components fetching in Node, so prices are in the HTML on first paint rather than after a client round-trip. The only client-side work is the live socket and the chart interaction — and `e2e/performance.spec.ts` asserts the markets page makes **zero** client requests for prices, so that split can't silently regress.
 
@@ -45,7 +47,7 @@ npm ci
 npm run dev      # http://localhost:3002
 ```
 
-No API keys or environment variables are needed — both upstreams are public. `COINGECKO_BASE_URL` and `KRAKEN_BASE_URL` exist only so the tests can point at a stub.
+No API keys or environment variables are needed — both upstreams are public. `COINGECKO_BASE_URL`, `KRAKEN_BASE_URL` and `NEXT_PUBLIC_KRAKEN_WS_URL` exist only so the tests can point at a stub.
 
 ```bash
 npm run build && npm start   # production build
@@ -57,6 +59,8 @@ npm run build && npm start   # production build
 npm test                  # unit + integration (jest), ~2s
 npm run test:watch        # the same, on save
 npm run test:coverage     # + coverage → open coverage/lcov-report/index.html
+
+npx playwright install chromium   # once, before the first e2e run
 npm run test:e2e          # end-to-end (playwright), ~40s
 npm run test:e2e:ui       # playwright's interactive/time-travel mode
 ```
@@ -69,7 +73,7 @@ The split is not by folder or by ceremony — it's by **what the test can actual
 
 | Layer           | Tool                                 | Lives in         | Covers                                                                                                                                                                                                                                             |
 | --------------- | ------------------------------------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Unit**        | Jest                                 | `lib/`, `store/` | Pure logic with real edge cases: chart geometry, tween math, tick coalescing and reconnect backoff. No renderer, no browser. Milliseconds, so edges are covered exhaustively.                                                                      |
+| **Unit**        | Jest                                 | `lib/`, `store/` | Pure logic with real edge cases: chart geometry, tween math, tick coalescing and reconnect backoff. No renderer, no browser. Milliseconds, so edge cases are cheap to cover.                                                                       |
 | **Integration** | Jest + React Testing Library (jsdom) | `components/`    | A component wired to its **real** collaborators — real Redux store, real children, real dispatch. Only things that leave the process are stubbed (`fetch`, `next/navigation`, `requestAnimationFrame`, the WebSocket). Most confidence lives here. |
 | **E2E**         | Playwright                           | `e2e/`           | What nothing cheaper can see: `async` Server Components, routing, SSG pages, hydration, real route handlers. Runs against a production build.                                                                                                      |
 
@@ -136,6 +140,6 @@ Deeper reasoning: [docs/testing.md](docs/testing.md). Store architecture: [docs/
 
 ## CI & deployment
 
-Every push and pull request runs the full suite on GitHub Actions (`.github/workflows/ci.yml`): lint, typecheck and Jest in one job, Playwright in another. CI never touches the real CoinGecko or Kraken — the e2e job builds against `e2e/stub/upstreams.mjs`, so a run is hermetic and an upstream outage can't turn the pipeline red.
+Every push and pull request runs the full suite on GitHub Actions (`.github/workflows/ci.yml`): lint, typecheck and Jest in one job, Playwright in another. CI never touches the real CoinGecko or Kraken: both REST bases **and the socket URL** are redirected to `e2e/stub/upstreams.mjs` at build time, so the bundle under test has no route to the exchange — `grep -r ws.kraken.com .next-e2e/static` comes back empty. An upstream outage can't turn the pipeline red.
 
 Deploys go to Vercel on push to `main`; pull requests get their own preview URL. The coin pages are SSG with `revalidate: 30`, so the build does hit the live upstreams — `lib/http.ts` retries 429s and 5xx with jittered backoff, which matters because a build renders pages across parallel workers.
