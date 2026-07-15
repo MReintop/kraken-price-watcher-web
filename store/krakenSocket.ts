@@ -39,12 +39,15 @@ export function startKrakenTicker(
   };
 
   const connect = () => {
-    ws = new WebSocket(WS_URL);
+    // Handlers close over this socket, not over `ws`: a late event from a
+    // replaced connection would otherwise act on the live one.
+    const socket = new WebSocket(WS_URL);
+    ws = socket;
 
-    ws.onopen = () => {
+    socket.onopen = () => {
       backoff = 1000; // reset backoff on a healthy connection
       dispatch(socketStatusChanged(true));
-      ws?.send(
+      socket.send(
         JSON.stringify({
           method: 'subscribe',
           params: { channel: 'ticker', symbol: pairs },
@@ -53,7 +56,7 @@ export function startKrakenTicker(
       flushTimer = setInterval(flush, FLUSH_MS);
     };
 
-    ws.onmessage = (event) => {
+    socket.onmessage = (event) => {
       let msg: KrakenTickerMessage;
       try {
         msg = JSON.parse((event as { data: string }).data);
@@ -71,7 +74,7 @@ export function startKrakenTicker(
       }
     };
 
-    ws.onclose = () => {
+    socket.onclose = () => {
       dispatch(socketStatusChanged(false));
       if (flushTimer) {
         clearInterval(flushTimer);
@@ -80,8 +83,8 @@ export function startKrakenTicker(
       scheduleReconnect();
     };
 
-    ws.onerror = () => {
-      ws?.close();
+    socket.onerror = () => {
+      socket.close();
     };
   };
 
