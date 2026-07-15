@@ -111,6 +111,12 @@ export function startKrakenTicker(
     const mine = ++generation;
     ws = socket;
     setStatus('connecting');
+    // Whatever Kraken refused last time was an answer about a connection that no
+    // longer exists. This one has not answered yet, and a symbol carrying the
+    // last connection's rejection would read as refused by this one — which,
+    // when every symbol is refused and the socket closes without settling, is a
+    // verdict that could outlive every connection that followed it.
+    dispatch(subscriptionsSettled([]));
 
     // Kraken answers the subscribe once per symbol. Tracking which ones are
     // still outstanding is what stops the first "yes" speaking for all of them.

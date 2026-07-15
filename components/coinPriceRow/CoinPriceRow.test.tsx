@@ -8,10 +8,11 @@ import CoinPriceRow from './CoinPriceRow';
 // which is the split under test as much as anything else here.
 const renderWithStore = (
   bySymbol: Record<string, number>,
-  changePct = -1.45,
+  changePct: number | null = -1.45,
+  unavailable: string[] = [],
 ) => {
   const store = makeStore({
-    prices: { bySymbol, status: 'live', unavailable: [] },
+    prices: { bySymbol, status: 'live', unavailable },
   });
   render(
     <Provider store={store}>
@@ -22,22 +23,27 @@ const renderWithStore = (
 };
 
 describe('CoinPriceRow', () => {
-  // Documents the split rather than defends it: the change is a prop, so a tick
-  // has no way to reach it and this cannot fail while that holds. What defends
-  // it is store/krakenSocket.test.ts, where a frame's change_pct can actually
-  // try to get into a dispatch.
-  it('shows a change the price ticks cannot reach', () => {
-    // Arrange
-    const store = renderWithStore({ BTC: 62888 }, -1.45);
+  // No test here that a tick leaves the 24h change alone: `changePct` is a prop,
+  // so no tick can reach it whether the code is right or wrong, and a test that
+  // passes either way certifies nothing. The guard is in
+  // store/krakenSocket.test.ts, where a frame's change_pct can actually try to
+  // get into a dispatch.
+  // This is the screen people watch. A price Kraken refused looks exactly like a
+  // live one here — the coin's own page said so, this one did not.
+  it('says when a price is not updating, rather than showing it as live', () => {
+    // Arrange / Act — the feed is live; Kraken just refused this symbol
+    renderWithStore({ BTC: 62888 }, -1.45, ['BTC']);
 
-    // Act
-    act(() => {
-      store.dispatch(tickersApplied([{ symbol: 'BTC', last: 63000 }]));
-    });
+    // Assert
+    expect(screen.getByText('Not updating')).toBeInTheDocument();
+  });
 
-    // Assert — new price from Kraken, the change still CoinGecko's
-    expect(screen.getByText(/63,000/)).toBeInTheDocument();
-    expect(screen.getByText(/1\.45%/)).toBeInTheDocument();
+  it('says nothing of the sort for a symbol that is ticking', () => {
+    // Arrange / Act
+    renderWithStore({ BTC: 62888 }, -1.45, ['ETH']);
+
+    // Assert — a neighbour's rejection is not this row's problem
+    expect(screen.queryByText('Not updating')).not.toBeInTheDocument();
   });
 
   it('renders the seeded price and change for its symbol', () => {

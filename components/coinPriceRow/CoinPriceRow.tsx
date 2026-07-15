@@ -1,7 +1,7 @@
 'use client';
 
 import { useAppSelector } from '@/store/hooks';
-import { selectPrice } from '@/store/pricesSlice';
+import { selectIsUnavailable, selectPrice } from '@/store/pricesSlice';
 import AnimatedPrice from '@/components/animatedPrice/AnimatedPrice';
 import styles from './CoinPriceRow.module.css';
 
@@ -15,6 +15,7 @@ interface CoinPriceRowProps {
 
 export default function CoinPriceRow({ symbol, changePct }: CoinPriceRowProps) {
   const price = useAppSelector(selectPrice(symbol.toUpperCase()));
+  const unavailable = useAppSelector(selectIsUnavailable(symbol.toUpperCase()));
   if (price == null) return <></>;
 
   const up = changePct != null && changePct >= 0;
@@ -22,15 +23,26 @@ export default function CoinPriceRow({ symbol, changePct }: CoinPriceRowProps) {
 
   return (
     <div className={styles.body}>
-      <AnimatedPrice value={price} className={styles.price} />
-      <span
-        className={`${styles.pill} ${pillClass ?? (up ? styles.pillUp : styles.pillDown)}`}
-        title="24h change across exchanges, from CoinGecko"
-      >
-        {/* An upstream that cannot measure the change says so; inventing 0.00%
-            would read as a market that did not move. */}
-        {changePct == null ? '—' : `${up ? '+' : ''}${changePct.toFixed(2)}%`}
-      </span>
+      <AnimatedPrice
+        value={price}
+        className={`${styles.price} ${unavailable ? styles.priceStale : ''}`}
+      />
+      <div className={styles.meta}>
+        <span
+          className={`${styles.pill} ${pillClass ?? (up ? styles.pillUp : styles.pillDown)}`}
+          title="24h change across exchanges, from CoinGecko"
+        >
+          {/* An upstream that cannot measure the change says so; inventing 0.00%
+              would read as a market that did not move. */}
+          {changePct == null ? '—' : `${up ? '+' : ''}${changePct.toFixed(2)}%`}
+        </span>
+
+        {/* Said here, not only on the coin's own page: this is the screen people
+            actually watch, and a price Kraken refused to send looks exactly like
+            a live one until something says otherwise. Plain text rather than a
+            live region — eight rows announcing at once would help no one. */}
+        {unavailable && <span className={styles.stale}>Not updating</span>}
+      </div>
     </div>
   );
 }
