@@ -2,12 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { animateValue } from '@/lib/animate';
-
-const formatPrice = (n: number) =>
-  `$${n.toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+import { formatPrice } from '@/lib/format';
 
 export default function AnimatedPrice({
   value,

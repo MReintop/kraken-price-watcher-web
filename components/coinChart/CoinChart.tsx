@@ -6,9 +6,9 @@ import { selectPrice } from '@/store/pricesSlice';
 import {
   applyLivePrice,
   periodChangePct,
-  formatSignedPct,
   type Candle,
 } from '@/lib/candleChart';
+import { formatSignedPct } from '@/lib/format';
 import { fetchCandles } from '@/lib/chartApi';
 import TimeframeSelector from './TimeframeSelector';
 import CandlestickChart from './CandlestickChart';

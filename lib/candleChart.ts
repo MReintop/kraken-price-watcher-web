@@ -1,10 +1,5 @@
 export type Candle = { t: number; o: number; h: number; l: number; c: number };
 
-// CoinGecko OHLC rows are [ts_ms, open, high, low, close].
-export function mapOhlcRows(rows: number[][]): Candle[] {
-  return rows.map(([t, o, h, l, c]) => ({ t, o, h, l, c }));
-}
-
 export function applyLivePrice(candles: Candle[], price?: number): Candle[] {
   if (price == null || candles.length === 0) return candles;
   const last = candles[candles.length - 1];
@@ -22,10 +17,6 @@ export function periodChangePct(candles: Candle[]): number | null {
   const first = candles[0].o;
   if (first === 0) return null;
   return ((candles[candles.length - 1].c - first) / first) * 100;
-}
-
-export function formatSignedPct(pct: number): string {
-  return `${pct >= 0 ? '▲' : '▼'} ${Math.abs(pct).toFixed(2)}%`;
 }
 
 export interface PriceDomain {

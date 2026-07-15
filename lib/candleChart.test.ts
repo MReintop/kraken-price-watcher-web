@@ -4,8 +4,6 @@ import {
   priceDomain,
   computeCandleLayout,
   evenlySpacedIndices,
-  formatSignedPct,
-  mapOhlcRows,
   priceToY,
   niceTicks,
   formatAxisPrice,
@@ -83,51 +81,6 @@ describe('candleChart', () => {
 
     // Assert
     expect(result).toEqual([0, 2, 4, 6, 8]);
-  });
-
-  it('formats a gain with an up arrow', () => {
-    // Arrange / Act
-    const result = formatSignedPct(2.5);
-
-    // Assert
-    expect(result).toBe('▲ 2.50%');
-  });
-
-  it('formats a loss with a down arrow and no duplicate minus sign', () => {
-    // Arrange / Act
-    const result = formatSignedPct(-2.5);
-
-    // Assert
-    expect(result).toBe('▼ 2.50%');
-  });
-
-  it('treats zero as a gain', () => {
-    // Arrange / Act
-    const result = formatSignedPct(0);
-
-    // Assert
-    expect(result).toBe('▲ 0.00%');
-  });
-});
-
-describe('mapOhlcRows', () => {
-  it('maps CoinGecko [ts, o, h, l, c] rows into candles', () => {
-    // Arrange
-    const rows = [[1000, 10, 12, 9, 11]];
-
-    // Act
-    const result = mapOhlcRows(rows);
-
-    // Assert
-    expect(result).toEqual([{ t: 1000, o: 10, h: 12, l: 9, c: 11 }]);
-  });
-
-  it('maps an empty response to no candles', () => {
-    // Arrange / Act
-    const result = mapOhlcRows([]);
-
-    // Assert
-    expect(result).toEqual([]);
   });
 });
 
