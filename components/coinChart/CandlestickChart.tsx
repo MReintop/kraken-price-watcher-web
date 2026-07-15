@@ -15,17 +15,19 @@ const BOTTOM_AXIS = 22;
 const X_LABEL_COUNT = 5;
 const AXIS_FONT = 10;
 
+interface CandlestickChartProps {
+  candles: Candle[];
+  width: number;
+  height: number;
+  days: number;
+}
+
 export default function CandlestickChart({
   candles,
   width,
   height,
   days,
-}: {
-  candles: Candle[];
-  width: number;
-  height: number;
-  days: number;
-}) {
+}: CandlestickChartProps) {
   const plotWidth = Math.max(width - RIGHT_AXIS, 0);
   const plotHeight = Math.max(height - BOTTOM_AXIS, 0);
 

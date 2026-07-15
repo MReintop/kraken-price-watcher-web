@@ -6,7 +6,11 @@ import AnimatedPrice from '@/components/animatedPrice/AnimatedPrice';
 import PriceTickIndicator from '@/components/priceTickIndicator/PriceTickIndicator';
 import styles from './CoinPriceHeader.module.css';
 
-export default function CoinPriceHeader({ symbol }: { symbol: string }) {
+interface CoinPriceHeaderProps {
+  symbol: string;
+}
+
+export default function CoinPriceHeader({ symbol }: CoinPriceHeaderProps) {
   const data = useAppSelector(selectPrice(symbol.toUpperCase()));
   const live = useAppSelector(selectLive);
   if (!data) return null;

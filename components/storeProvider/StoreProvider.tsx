@@ -7,13 +7,15 @@ import { makeStore } from '@/store/store';
 import { seedPricesFromCoins } from '@/store/pricesSlice';
 import { startKrakenTicker } from '@/store/krakenSocket';
 
+interface StoreProviderProps {
+  initialCoins: Coin[];
+  children: React.ReactNode;
+}
+
 export default function StoreProvider({
   initialCoins,
   children,
-}: {
-  initialCoins: Coin[];
-  children: React.ReactNode;
-}) {
+}: StoreProviderProps) {
   // Created once per mount, never as a module singleton: a shared store would
   // leak state between server requests. useState (not useRef) so it is readable
   // during render.

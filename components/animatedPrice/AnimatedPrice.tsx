@@ -4,15 +4,17 @@ import { useEffect, useRef, useState } from 'react';
 import { animateValue } from '@/lib/animate';
 import { formatPrice } from '@/lib/format';
 
+interface AnimatedPriceProps {
+  value: number;
+  className?: string;
+  duration?: number;
+}
+
 export default function AnimatedPrice({
   value,
   className,
   duration = 1500,
-}: {
-  value: number;
-  className?: string;
-  duration?: number;
-}) {
+}: AnimatedPriceProps) {
   const [text, setText] = useState(() => formatPrice(value));
   const valueRef = useRef(value); // latest raw (unrounded) value
 

@@ -5,7 +5,11 @@ import { selectPrice } from '@/store/pricesSlice';
 import AnimatedPrice from '@/components/animatedPrice/AnimatedPrice';
 import styles from './CoinPriceRow.module.css';
 
-export default function CoinPriceRow({ symbol }: { symbol: string }) {
+interface CoinPriceRowProps {
+  symbol: string;
+}
+
+export default function CoinPriceRow({ symbol }: CoinPriceRowProps) {
   const data = useAppSelector(selectPrice(symbol.toUpperCase()));
   if (!data) return <></>;
 

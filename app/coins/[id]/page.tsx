@@ -5,7 +5,9 @@ import CoinPriceHeader from '@/components/coinPriceHeader/CoinPriceHeader';
 import CoinChart from '@/components/coinChart/CoinChart';
 import styles from './page.module.css';
 
-type CoinDetailPageProps = { params: Promise<{ id: string }> };
+interface CoinDetailPageProps {
+  params: Promise<{ id: string }>;
+}
 
 export async function generateStaticParams() {
   const coins = await getCoins();

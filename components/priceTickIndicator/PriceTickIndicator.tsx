@@ -3,7 +3,11 @@
 import { useState } from 'react';
 import styles from './PriceTickIndicator.module.css';
 
-export default function PriceTickIndicator({ price }: { price: number }) {
+interface PriceTickIndicatorProps {
+  price: number;
+}
+
+export default function PriceTickIndicator({ price }: PriceTickIndicatorProps) {
   const [prevPrice, setPrevPrice] = useState(price);
   const [dir, setDir] = useState<'up' | 'down' | null>(null);
   const [tick, setTick] = useState(0);

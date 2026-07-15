@@ -14,17 +14,19 @@ import TimeframeSelector from './TimeframeSelector';
 import CandlestickChart from './CandlestickChart';
 import styles from './CoinChart.module.css';
 
+interface CoinChartProps {
+  coinId: string;
+  symbol: string;
+  initialCandles: Candle[];
+  initialDays?: number;
+}
+
 export default function CoinChart({
   coinId,
   symbol,
   initialCandles,
   initialDays = 30,
-}: {
-  coinId: string;
-  symbol: string;
-  initialCandles: Candle[];
-  initialDays?: number;
-}) {
+}: CoinChartProps) {
   const [days, setDays] = useState(initialDays);
   const [candles, setCandles] = useState(initialCandles);
   const [loading, setLoading] = useState(false);

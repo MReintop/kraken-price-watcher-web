@@ -21,11 +21,11 @@ export const metadata: Metadata = {
   description: 'Live cryptocurrency prices, streamed from Kraken.',
 };
 
-export default async function RootLayout({
-  children,
-}: Readonly<{
+interface RootLayoutProps {
   children: React.ReactNode;
-}>) {
+}
+
+export default async function RootLayout({ children }: RootLayoutProps) {
   const coins = await getCoins();
 
   return (

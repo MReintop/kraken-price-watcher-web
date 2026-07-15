@@ -21,6 +21,10 @@ These are not optional background. Each documents decisions that are invisible i
 - **Formatting is prettier's job, correctness is eslint's.** Don't hand-format, and don't add stylistic eslint rules — `eslint-config-prettier` turns them off on purpose.
 - **Hooks run automatically:** `pre-commit` runs prettier + eslint over staged files only; `pre-push` runs the whole test suite (jest + playwright). Don't `--no-verify` around a failure; fix it.
 
+## Props get a named interface
+
+A component taking props declares an `interface` named after it — `CoinChartProps`, `TimeframeSelectorProps` — even for a single prop. Not an inline object literal after the destructure, and **never a bare `Props`**: every file would declare a different type under the same name, so the name says nothing at a call site and greps for it are useless.
+
 ## Comments: last resort, local, short
 
 Write code that doesn't need explaining. Reach for a better name before reaching for a comment — if a comment says _what_ something is, that's a naming bug.
