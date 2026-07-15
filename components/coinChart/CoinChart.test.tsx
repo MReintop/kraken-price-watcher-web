@@ -144,6 +144,36 @@ describe('CoinChart', () => {
     expect(screen.queryByText('Chart unavailable')).not.toBeInTheDocument();
   });
 
+  // The retry is the way out of the failed state, so it has to actually work —
+  // rendering a button that does nothing would be worse than no button.
+  it('recovers when the retry succeeds', async () => {
+    // Arrange — the first request fails, the retry does not
+    global.fetch = jest
+      .fn()
+      .mockResolvedValueOnce({ ok: false, status: 500 })
+      .mockResolvedValueOnce({
+        ok: true,
+        json: async () => ({ candles: twoCandles }),
+      }) as unknown as typeof fetch;
+    renderChart({ candles: twoCandles });
+    await userEvent.click(screen.getByRole('button', { name: '24H' }));
+    await screen.findByText(/Couldn't load that timeframe/);
+
+    // Act
+    await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
+
+    // Assert — the error clears and the timeframe finally commits
+    await waitFor(() =>
+      expect(
+        screen.queryByText(/Couldn't load that timeframe/),
+      ).not.toBeInTheDocument(),
+    );
+    expect(screen.getByRole('button', { name: '24H' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
+  });
+
   it('keeps showing the timeframe it has data for, not the one that failed', async () => {
     // Arrange
     global.fetch = jest

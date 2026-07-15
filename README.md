@@ -65,7 +65,7 @@ npm run test:e2e          # end-to-end (playwright), ~40s
 npm run test:e2e:ui       # playwright's interactive/time-travel mode
 ```
 
-`pre-commit` runs prettier and eslint over staged files; `pre-push` runs both test suites — jest and playwright. Lint and typecheck are CI's job, and CI runs all four.
+`pre-commit` runs prettier and eslint over staged files; `pre-push` runs both test suites — jest with its coverage thresholds, and playwright. Lint and typecheck are CI's job, and CI runs all four.
 
 ### How the three layers are split, and why
 

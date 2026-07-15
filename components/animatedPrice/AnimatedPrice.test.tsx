@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import AnimatedPrice from './AnimatedPrice';
 
 describe('AnimatedPrice', () => {
@@ -48,6 +48,22 @@ describe('AnimatedPrice', () => {
     const price = screen.getByText('$100.00');
     expect(price).not.toHaveClass('up');
     expect(price).not.toHaveClass('down');
+  });
+
+  // Left on, the tint would still be there at the next tick, and a price that
+  // rose an hour ago would read as one that just did.
+  it('drops the flash once the animation has run', () => {
+    // Arrange
+    const { rerender } = render(<AnimatedPrice value={100} />);
+    rerender(<AnimatedPrice value={101} />);
+    const price = screen.getByText('$101.00');
+    expect(price).toHaveClass('up');
+
+    // Act — jsdom runs no animations, so the browser's event is the stand-in
+    fireEvent.animationEnd(price);
+
+    // Assert
+    expect(screen.getByText('$101.00')).not.toHaveClass('up');
   });
 
   it('keeps the class it was given', () => {

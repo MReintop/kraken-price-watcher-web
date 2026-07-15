@@ -26,7 +26,7 @@ const config = {
     global: {
       statements: 99,
       branches: 91,
-      functions: 94,
+      functions: 95,
       lines: 99,
     },
   },
@@ -40,12 +40,17 @@ const config = {
     '!**/*.test.{ts,tsx}',
     '!**/*.d.ts',
     // async Server Components: RTL cannot render them.
-    '!app/(markets)/layout.tsx',
-    '!app/(markets)/coins/**',
+    //
+    // The parentheses are escaped because a route group's name is also glob
+    // syntax: unescaped, `(markets)` is a one-branch group matching the literal
+    // `markets`, so these patterns silently match nothing and the files they
+    // name read 0% instead of being excluded.
+    '!app/\\(markets\\)/layout.tsx',
+    '!app/\\(markets\\)/coins/**',
     '!components/markets/Markets.tsx',
     '!components/marketSummary/MarketSummary.tsx',
     // Sync, but renders async children.
-    '!app/(markets)/page.tsx',
+    '!app/\\(markets\\)/page.tsx',
     '!app/layout.tsx',
     // Route handlers, not components.
     '!app/api/**',
