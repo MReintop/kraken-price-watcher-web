@@ -208,20 +208,6 @@ describe('fetchKrakenCandles', () => {
     expect(candles[candles.length - 1].c).toBe(99);
   });
 
-  it('falls back to the 1M timeframe for an unknown range', async () => {
-    // Arrange
-    const fetchMock = jest
-      .fn()
-      .mockResolvedValue(envelope({ SOLUSD: [], last: 0 }));
-    global.fetch = fetchMock as unknown as typeof fetch;
-
-    // Act
-    await fetchKrakenCandles('SOLUSD', 7);
-
-    // Assert
-    expect(fetchMock.mock.calls[0][0]).toContain('interval=1440');
-  });
-
   it('throws on an unknown pair, which Kraken reports with HTTP 200', async () => {
     // Arrange
     global.fetch = jest
@@ -246,5 +232,17 @@ describe('fetchKrakenCandles', () => {
     await expect(fetchKrakenCandles('SOLUSD', 30)).rejects.toThrow(
       'no candles',
     );
+  });
+
+  it('refuses an unmapped timeframe instead of serving another one', async () => {
+    // Arrange
+    const fetchMock = jest.fn();
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    // Act / Assert — falling back would answer "7d" with 30-day candles
+    await expect(fetchKrakenCandles('SOLUSD', 7)).rejects.toThrow(
+      'No timeframe is mapped for 7 days',
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

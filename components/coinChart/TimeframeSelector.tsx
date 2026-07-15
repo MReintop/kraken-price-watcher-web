@@ -1,10 +1,5 @@
+import { TIMEFRAMES } from '@/lib/timeframes';
 import styles from './TimeframeSelector.module.css';
-
-export const TIMEFRAMES = [
-  { label: '24H', days: 1 },
-  { label: '1M', days: 30 },
-  { label: '1Y', days: 365 },
-] as const;
 
 export default function TimeframeSelector({
   value,

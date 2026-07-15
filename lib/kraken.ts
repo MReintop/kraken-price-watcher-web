@@ -1,4 +1,5 @@
 import { fetchWithRetry } from './http';
+import { timeframeFor } from './timeframes';
 import type { Candle } from './candleChart';
 
 const KRAKEN_BASE =
@@ -55,22 +56,15 @@ export async function fetchKrakenPrices(
   );
 }
 
-// Kraken buckets candles by minutes-per-candle, so a timeframe is an interval
-// plus how many of those candles to keep.
-const TIMEFRAMES: Record<number, { interval: number; points: number }> = {
-  1: { interval: 60, points: 24 },
-  30: { interval: 1440, points: 30 },
-  365: { interval: 10080, points: 52 },
-};
-const DEFAULT_TIMEFRAME = TIMEFRAMES[30];
-
 type OhlcRow = [number, string, string, string, string, string, string, number];
 
 export async function fetchKrakenCandles(
   pair: string,
   days: number,
 ): Promise<Candle[]> {
-  const { interval, points } = TIMEFRAMES[days] ?? DEFAULT_TIMEFRAME;
+  const timeframe = timeframeFor(days);
+  if (!timeframe) throw new Error(`No timeframe is mapped for ${days} days`);
+  const { interval, points } = timeframe;
   const result = await krakenGet<Record<string, OhlcRow[] | number>>(
     `/OHLC?pair=${pair}&interval=${interval}`,
     300,
