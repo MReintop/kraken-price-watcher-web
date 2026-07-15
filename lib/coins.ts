@@ -82,6 +82,10 @@ export async function getCoin(id: string): Promise<Coin | undefined> {
   return coins.find((coin) => coin.id === id);
 }
 
+// Lets a caller separate "we do not track that" from "the exchange failed us",
+// which are the same exception but a very different answer.
+export const isTrackedCoin = (id: string) => pairFor(id) !== undefined;
+
 export async function getCoinCandles(
   id: string,
   days: number | string = 30,

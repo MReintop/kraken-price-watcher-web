@@ -136,4 +136,50 @@ describe('fetchWithRetry', () => {
     // Assert
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
+
+  // A dropped connection has no status to inspect, so a retry keyed only on
+  // response codes never sees it — the first blip took the page down.
+  it('retries a connection that throws instead of answering', async () => {
+    // Arrange
+    const fetchMock = jest
+      .fn()
+      .mockRejectedValueOnce(new Error('ECONNRESET'))
+      .mockResolvedValueOnce(ok);
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    // Act
+    const pending = fetchWithRetry('https://example.test', {});
+    await jest.advanceTimersByTimeAsync(5_000);
+
+    // Assert
+    await expect(pending).resolves.toMatchObject({ ok: true });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('gives up on a connection that never answers, rather than hanging', async () => {
+    // Arrange
+    const fetchMock = jest.fn().mockRejectedValue(new Error('TimeoutError'));
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    // Act
+    const pending = fetchWithRetry('https://example.test', {});
+    const settled = expect(pending).rejects.toThrow('TimeoutError');
+    await jest.advanceTimersByTimeAsync(60_000);
+    await settled;
+
+    // Assert — bounded attempts, then the caller is told, not left waiting
+    expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  it('bounds every attempt with a timeout signal', async () => {
+    // Arrange
+    const fetchMock = jest.fn().mockResolvedValue(ok);
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    // Act
+    await fetchWithRetry('https://example.test', {});
+
+    // Assert — without this, a hung upstream holds the worker indefinitely
+    expect(fetchMock.mock.calls[0][1].signal).toBeInstanceOf(AbortSignal);
+  });
 });

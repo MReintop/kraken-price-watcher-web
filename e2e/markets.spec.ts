@@ -38,6 +38,24 @@ test.describe('Markets (server-rendered)', () => {
   });
 });
 
+test.describe('Not found', () => {
+  test('answers a made-up coin with our own page, not the framework default', async ({
+    page,
+  }) => {
+    // Act — a reviewer editing the URL bar is the whole reason this exists
+    const response = await page.goto('/coins/notacoin');
+
+    // Assert
+    expect(response?.status()).toBe(404);
+    await expect(
+      page.getByRole('heading', { name: 'Not found' }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole('link', { name: 'Back to markets' }),
+    ).toBeVisible();
+  });
+});
+
 test.describe('Navigation', () => {
   test('a coin links through to its detail page', async ({ page }) => {
     // Arrange

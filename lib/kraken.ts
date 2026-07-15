@@ -32,6 +32,17 @@ async function krakenGet<T>(path: string, revalidate: number): Promise<T> {
 // 24h change at all.
 type TickerResult = Record<string, { c: [string, string] }>;
 
+// The response is JSON, not a promise about JSON: the types above describe what
+// Kraken says it sends, and nothing checks it at runtime. Number('') is 0 and
+// Number(undefined) is NaN, either of which would render as a real price.
+function toPrice(raw: unknown, context: string): number {
+  const value = Number(raw);
+  if (!Number.isFinite(value)) {
+    throw new Error(`Kraken ${context}: expected a number, got ${String(raw)}`);
+  }
+  return value;
+}
+
 // One request for every pair. Kraken keys the response by its own canonical pair
 // name and not in the order asked, so callers must look up by name.
 export async function fetchKrakenPrices(
@@ -43,7 +54,10 @@ export async function fetchKrakenPrices(
   );
 
   return new Map(
-    Object.entries(result).map(([pair, ticker]) => [pair, Number(ticker.c[0])]),
+    Object.entries(result).map(([pair, ticker]) => [
+      pair,
+      toPrice(ticker?.c?.[0], `${pair} last`),
+    ]),
   );
 }
 
@@ -67,12 +81,13 @@ export async function fetchKrakenCandles(
   }
 
   // Rows are [time, open, high, low, close, vwap, volume, count]: prices arrive
-  // as strings, and the timestamp is in seconds.
+  // as strings, and the timestamp is in seconds. A NaN here reaches SVG geometry
+  // and draws nothing, silently, so it stops here instead.
   return rows.slice(-points).map(([time, open, high, low, close]) => ({
-    t: time * 1000,
-    o: Number(open),
-    h: Number(high),
-    l: Number(low),
-    c: Number(close),
+    t: toPrice(time, `${pair} time`) * 1000,
+    o: toPrice(open, `${pair} open`),
+    h: toPrice(high, `${pair} high`),
+    l: toPrice(low, `${pair} low`),
+    c: toPrice(close, `${pair} close`),
   }));
 }

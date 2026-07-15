@@ -103,6 +103,27 @@ test.describe('Coin detail', () => {
     // Assert — 400, not 30-day candles wearing a 7d label
     expect(response.status()).toBe(400);
   });
+
+  test('answers 404 for a coin it does not track', async ({ request }) => {
+    // Act
+    const response = await request.get('/api/chart/notacoin');
+
+    // Assert — 404, not the 500 that blames us for a URL the caller made up
+    expect(response.status()).toBe(404);
+    expect(await response.json()).toMatchObject({ error: expect.any(String) });
+  });
+
+  test('answers 502 when the exchange is the one that failed', async ({
+    request,
+  }) => {
+    // Act — the stub refuses this pair and interval, as Kraken does: HTTP 200
+    // with a populated error array
+    const response = await request.get('/api/chart/polkadot?days=1');
+
+    // Assert — a 500 would say we broke, and tell a caller nothing about
+    // whether retrying is worth its time
+    expect(response.status()).toBe(502);
+  });
 });
 
 test.describe('feed health', () => {

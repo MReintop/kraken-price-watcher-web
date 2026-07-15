@@ -35,6 +35,11 @@ const config = {
     '!app/page.tsx',
     // Route handlers, not components.
     '!app/api/**',
+    // Error boundaries: Next owns when they mount, and global-error.tsx renders
+    // its own <html>. The UI they share is components/errorState, which Jest
+    // does see; these two only wire it to Next's error API.
+    '!app/error.tsx',
+    '!app/global-error.tsx',
   ],
 };
 

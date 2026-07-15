@@ -104,6 +104,11 @@ const ticker = (requested) => {
   );
 };
 
+// The upstream-failure fixture. Nothing else asks for polkadot at 24H, so this
+// one pair and interval can fail every time without a mutable flag that the
+// parallel specs would race each other over.
+const FAILING_OHLC = { pair: 'DOTUSD', interval: 60 };
+
 // Kraken /OHLC: [timeSeconds, open, high, low, close, vwap, volume, count].
 // A sine walk around the coin's price, anchored to a fixed epoch so the x-axis
 // labels never move.
@@ -155,6 +160,9 @@ export function createStubServer() {
     if (url.pathname === '/kraken/OHLC') {
       const pair = url.searchParams.get('pair');
       const interval = Number(url.searchParams.get('interval') ?? 1440);
+      if (pair === FAILING_OHLC.pair && interval === FAILING_OHLC.interval) {
+        return krakenError('EService:Unavailable');
+      }
       const result = ohlc(pair, interval);
       if (!result) return krakenError('EQuery:Unknown asset pair');
       return json({ error: [], result });
