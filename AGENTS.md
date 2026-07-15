@@ -1,3 +1,6 @@
+This is **kraken-price-watcher-web** — a React + Next.js application.
+Its sibling **kraken-price-watcher** is the React Native (Expo) one; don't apply its native conventions here.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know
