@@ -36,7 +36,13 @@ const pairFor = (id: string) =>
 
 type CoinMetadata = Pick<
   Coin,
-  'id' | 'name' | 'symbol' | 'image' | 'market_cap' | 'total_volume'
+  | 'id'
+  | 'name'
+  | 'symbol'
+  | 'image'
+  | 'market_cap'
+  | 'total_volume'
+  | 'price_change_percentage_24h'
 >;
 
 const METADATA_URL = `${COINGECKO_BASE}/coins/markets?vs_currency=usd&ids=${TRACKED_COINS.map(
@@ -53,8 +59,10 @@ async function fetchCoinMetadata(): Promise<CoinMetadata[]> {
   return response.json();
 }
 
-// Identity from CoinGecko, price from Kraken — the same source the live socket
-// and the candles use, so every price in the app comes from one place.
+// Price from Kraken — the same source the live socket and the candles use, so
+// every price in the app comes from one place. The 24h change stays CoinGecko's:
+// it is the only upstream here that measures a rolling 24 hours, which is the
+// window the socket's change_pct uses once it takes over.
 export async function getCoins(): Promise<Coin[]> {
   const [metadata, prices] = await Promise.all([
     fetchCoinMetadata(),
@@ -63,15 +71,9 @@ export async function getCoins(): Promise<Coin[]> {
 
   return TRACKED_COINS.flatMap(({ id, pair }) => {
     const coin = metadata.find((entry) => entry.id === id);
-    const price = prices.get(pair);
-    if (!coin || !price) return [];
-    return [
-      {
-        ...coin,
-        current_price: price.last,
-        price_change_percentage_24h: price.changePct,
-      },
-    ];
+    const last = prices.get(pair);
+    if (!coin || last == null) return [];
+    return [{ ...coin, current_price: last }];
   });
 }
 

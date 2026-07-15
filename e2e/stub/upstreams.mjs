@@ -5,6 +5,8 @@ import { createServer } from 'node:http';
 
 const PORT = Number(process.env.STUB_PORT ?? 4001);
 
+// `price` is Kraken's; `change24h` is CoinGecko's rolling-24h figure, which is
+// the only 24h window either upstream actually reports.
 const COINS = [
   {
     id: 'bitcoin',
@@ -12,7 +14,7 @@ const COINS = [
     symbol: 'btc',
     pair: 'XXBTZUSD',
     price: 62888,
-    open24h: 63814.2,
+    change24h: -1.45,
   },
   {
     id: 'ethereum',
@@ -20,7 +22,7 @@ const COINS = [
     symbol: 'eth',
     pair: 'XETHZUSD',
     price: 1883.21,
-    open24h: 1837.28,
+    change24h: 2.5,
   },
   {
     id: 'solana',
@@ -28,7 +30,7 @@ const COINS = [
     symbol: 'sol',
     pair: 'SOLUSD',
     price: 142.5,
-    open24h: 135.59,
+    change24h: 5.1,
   },
   {
     id: 'cardano',
@@ -36,7 +38,7 @@ const COINS = [
     symbol: 'ada',
     pair: 'ADAUSD',
     price: 0.38,
-    open24h: 0.382871,
+    change24h: -0.75,
   },
   {
     id: 'ripple',
@@ -44,7 +46,7 @@ const COINS = [
     symbol: 'xrp',
     pair: 'XXRPZUSD',
     price: 0.52,
-    open24h: 0.513834,
+    change24h: 1.2,
   },
   {
     id: 'dogecoin',
@@ -52,7 +54,7 @@ const COINS = [
     symbol: 'doge',
     pair: 'XDGUSD',
     price: 0.12,
-    open24h: 0.124224,
+    change24h: -3.4,
   },
   {
     id: 'polkadot',
@@ -60,7 +62,7 @@ const COINS = [
     symbol: 'dot',
     pair: 'DOTUSD',
     price: 4.15,
-    open24h: 4.11298,
+    change24h: 0.9,
   },
   {
     id: 'chainlink',
@@ -68,14 +70,14 @@ const COINS = [
     symbol: 'link',
     pair: 'LINKUSD',
     price: 11.3,
-    open24h: 10.8446,
+    change24h: 4.2,
   },
 ];
 
 const round = (n) => Math.round(n * 100) / 100;
 
-// CoinGecko: identity only. Prices here are deliberately absent — the app takes
-// them from Kraken.
+// CoinGecko: identity and the 24h change. The price is deliberately absent —
+// the app takes that from Kraken.
 const markets = () =>
   COINS.map((coin) => ({
     id: coin.id,
@@ -84,16 +86,20 @@ const markets = () =>
     image: `http://localhost:${PORT}/icon/${coin.id}.png`,
     market_cap: 1_000_000,
     total_volume: 500_000,
+    price_change_percentage_24h: coin.change24h,
   }));
 
-// Kraken /Ticker: `c` is [last, lotVolume], `o` is the 24h open. Prices are
-// strings, as the real API sends them.
+// Kraken /Ticker: `c` is [last, lotVolume]. `o` is *today's* open — a window
+// that grows from zero at midnight UTC, not 24 hours. It is served because the
+// real API serves it, and set to disagree with change24h on purpose: deriving a
+// 24h change from it puts every coin in a narrow green band, which is both
+// wrong and exactly what that bug looks like in the wild.
 const ticker = (requested) => {
   const wanted = new Set(requested.split(','));
   return Object.fromEntries(
     COINS.filter((coin) => wanted.has(coin.pair)).map((coin) => [
       coin.pair,
-      { c: [String(coin.price), '1.0'], o: String(coin.open24h) },
+      { c: [String(coin.price), '1.0'], o: String(coin.price * 0.99) },
     ]),
   );
 };

@@ -19,6 +19,7 @@ const metadata = () => [
     image: 'x',
     market_cap: 1,
     total_volume: 2,
+    price_change_percentage_24h: -1.45,
   },
   {
     id: 'ethereum',
@@ -27,13 +28,14 @@ const metadata = () => [
     image: 'y',
     market_cap: 3,
     total_volume: 4,
+    price_change_percentage_24h: 2.5,
   },
 ];
 
 const priced = () =>
   new Map([
-    ['XXBTZUSD', { last: 64788, changePct: 1.2 }],
-    ['XETHZUSD', { last: 1881, changePct: -0.5 }],
+    ['XXBTZUSD', 64788],
+    ['XETHZUSD', 1881],
   ]);
 
 beforeEach(() => {
@@ -67,7 +69,19 @@ describe('getCoins', () => {
 
     // Assert — the same source the socket and the candles use
     expect(coins[0].current_price).toBe(64788);
-    expect(coins[0].price_change_percentage_24h).toBe(1.2);
+  });
+
+  // The window has to match the socket's change_pct, which is a rolling 24h.
+  // Kraken's REST ticker only offers `o`, today's open, so a change derived from
+  // it would measure however long today has been and be silently corrected by
+  // the first tick — wrong magnitude, and around midnight the wrong sign.
+  it('takes the 24h change from CoinGecko, the only rolling-24h source', async () => {
+    // Arrange / Act
+    const coins = await getCoins();
+
+    // Assert
+    expect(coins[0].price_change_percentage_24h).toBe(-1.45);
+    expect(coins[1].price_change_percentage_24h).toBe(2.5);
   });
 
   it('asks CoinGecko for identity and Kraken for prices', async () => {
@@ -85,9 +99,7 @@ describe('getCoins', () => {
 
   it('drops a coin Kraken has no price for, rather than showing it at zero', async () => {
     // Arrange — only bitcoin is priced
-    mockPrices.mockResolvedValue(
-      new Map([['XXBTZUSD', { last: 64788, changePct: 1.2 }]]),
-    );
+    mockPrices.mockResolvedValue(new Map([['XXBTZUSD', 64788]]));
 
     // Act
     const coins = await getCoins();

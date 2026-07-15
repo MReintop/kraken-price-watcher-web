@@ -33,11 +33,13 @@ describe('fetchKrakenPrices', () => {
     const prices = await fetchKrakenPrices(['XXBTZUSD']);
 
     // Assert
-    expect(prices.get('XXBTZUSD')?.last).toBe(64788);
+    expect(prices.get('XXBTZUSD')).toBe(64788);
   });
 
-  it('derives the 24h change from the opening price', async () => {
-    // Arrange — 110 now against an open of 100
+  // `o` is today's open, not a 24h open, so no 24h change can be derived from
+  // this endpoint. The seed comes from CoinGecko instead — see lib/coins.ts.
+  it('ignores the opening price the ticker also carries', async () => {
+    // Arrange — an `o` that would read as +10% if it were used
     global.fetch = jest.fn().mockResolvedValue(
       envelope({
         SOLUSD: { c: ['110.0', '1.0'], o: '100.0' },
@@ -47,23 +49,8 @@ describe('fetchKrakenPrices', () => {
     // Act
     const prices = await fetchKrakenPrices(['SOLUSD']);
 
-    // Assert
-    expect(prices.get('SOLUSD')?.changePct).toBeCloseTo(10);
-  });
-
-  it('reports a fall as a negative change', async () => {
-    // Arrange
-    global.fetch = jest.fn().mockResolvedValue(
-      envelope({
-        SOLUSD: { c: ['90.0', '1.0'], o: '100.0' },
-      }),
-    ) as unknown as typeof fetch;
-
-    // Act
-    const prices = await fetchKrakenPrices(['SOLUSD']);
-
-    // Assert
-    expect(prices.get('SOLUSD')?.changePct).toBeCloseTo(-10);
+    // Assert — the price, and nothing derived from `o`
+    expect(prices.get('SOLUSD')).toBe(110);
   });
 
   it('asks for every pair in one request', async () => {
@@ -92,23 +79,8 @@ describe('fetchKrakenPrices', () => {
     const prices = await fetchKrakenPrices(['XXBTZUSD', 'SOLUSD']);
 
     // Assert
-    expect(prices.get('XXBTZUSD')?.last).toBe(64788);
-    expect(prices.get('SOLUSD')?.last).toBe(142.5);
-  });
-
-  it('treats a zero open as no change rather than dividing by it', async () => {
-    // Arrange
-    global.fetch = jest.fn().mockResolvedValue(
-      envelope({
-        SOLUSD: { c: ['10.0', '1.0'], o: '0' },
-      }),
-    ) as unknown as typeof fetch;
-
-    // Act
-    const prices = await fetchKrakenPrices(['SOLUSD']);
-
-    // Assert
-    expect(prices.get('SOLUSD')?.changePct).toBe(0);
+    expect(prices.get('XXBTZUSD')).toBe(64788);
+    expect(prices.get('SOLUSD')).toBe(142.5);
   });
 
   it('throws on an error body, which Kraken sends with HTTP 200', async () => {
