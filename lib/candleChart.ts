@@ -44,10 +44,16 @@ export interface PriceDomain {
 
 export function priceDomain(candles: Candle[]): PriceDomain {
   if (candles.length === 0) return { min: 0, max: 1 };
-  return {
-    min: Math.min(...candles.map((c) => c.l)),
-    max: Math.max(...candles.map((c) => c.h)),
-  };
+  const min = Math.min(...candles.map((c) => c.l));
+  const max = Math.max(...candles.map((c) => c.h));
+  if (min !== max) return { min, max };
+
+  // A market that did not move has no range to scale against, and a zero range
+  // has to be substituted for somewhere downstream — which lands every candle on
+  // the floor of the plot, drawn as if the price had collapsed. Padding around
+  // the price puts the flat line through the middle, where it belongs.
+  const pad = Math.abs(min) * 0.001 || 1;
+  return { min: min - pad, max: max + pad };
 }
 
 export function priceToY(

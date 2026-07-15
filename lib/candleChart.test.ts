@@ -147,6 +147,22 @@ describe('priceToY', () => {
     // Assert
     expect(Number.isFinite(result)).toBe(true);
   });
+
+  // Finite is not the same as right: substituting a range of 1 keeps the number
+  // real and still draws the flat market along the floor, as if it had crashed.
+  it('draws a market that did not move through the middle, not the floor', () => {
+    // Arrange — every candle at the same price
+    const flat = [
+      makeCandle({ o: 100, h: 100, l: 100, c: 100 }),
+      makeCandle({ o: 100, h: 100, l: 100, c: 100 }),
+    ];
+
+    // Act
+    const result = priceToY(100, priceDomain(flat), 200);
+
+    // Assert — centred in the plot, not pinned to its bottom edge
+    expect(result).toBeCloseTo(100);
+  });
 });
 
 describe('niceTicks', () => {

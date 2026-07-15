@@ -30,6 +30,24 @@
   transition: opacity 0.2s;
 }
 
+.error {
+  width: 100%;
+  color: var(--muted);
+  font-size: 13px;
+  padding: 4px 0 8px;
+}
+
+.retry {
+  font: inherit;
+  font-weight: 600;
+  color: var(--foreground);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
 .empty {
   width: 100%;
   color: var(--muted);

@@ -95,17 +95,17 @@ test.describe('when the OS asks for less motion', () => {
 
 // States below exist only after an interaction, so a scan on load never sees them.
 test.describe('states reached by a flow', () => {
-  test('the chart-unavailable state has no violations', async ({
+  test('the failed-timeframe state has no violations', async ({
     page,
     makeAxeBuilder,
   }) => {
-    // Arrange — fail the chart request so the empty state renders
+    // Arrange — fail the chart request, so the error and its retry render
     await page.route('**/api/chart/**', (route) =>
       route.fulfill({ status: 500, body: '' }),
     );
     await page.goto('/coins/bitcoin');
     await page.getByRole('button', { name: '24H' }).click();
-    await expect(page.getByText('Chart unavailable')).toBeVisible(); // readiness gate
+    await expect(page.getByText(/Couldn't load that timeframe/)).toBeVisible(); // readiness gate
 
     // Act
     const { violations } = await makeAxeBuilder().analyze();

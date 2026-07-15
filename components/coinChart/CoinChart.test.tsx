@@ -124,17 +124,41 @@ describe('CoinChart', () => {
     expect(mock).not.toHaveBeenCalled();
   });
 
-  it('reports the chart unavailable when the fetch fails', async () => {
-    // Arrange
+  // The candles already on screen are still true. Replacing them with
+  // "unavailable" loses a good chart to a request that failed.
+  it('keeps the chart it has when a timeframe fails to load', async () => {
+    // Arrange — a chart is showing, then the next request fails
     global.fetch = jest
       .fn()
       .mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
-    renderChart();
+    renderChart({ candles: twoCandles });
 
     // Act
     await userEvent.click(screen.getByRole('button', { name: '24H' }));
 
-    // Assert
-    expect(await screen.findByText('Chart unavailable')).toBeInTheDocument();
+    // Assert — says so, offers a way back, and keeps the candles
+    expect(
+      await screen.findByText(/Couldn't load that timeframe/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Try again' })).toBeVisible();
+    expect(screen.queryByText('Chart unavailable')).not.toBeInTheDocument();
+  });
+
+  it('keeps showing the timeframe it has data for, not the one that failed', async () => {
+    // Arrange
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue({ ok: false, status: 500 }) as unknown as typeof fetch;
+    renderChart({ candles: twoCandles });
+
+    // Act — ask for 24H, which never arrives
+    await userEvent.click(screen.getByRole('button', { name: '24H' }));
+    await screen.findByText(/Couldn't load that timeframe/);
+
+    // Assert — the 30-day data is still 30-day data, and still labelled so
+    expect(screen.getByRole('button', { name: '1M' })).toHaveAttribute(
+      'aria-pressed',
+      'true',
+    );
   });
 });

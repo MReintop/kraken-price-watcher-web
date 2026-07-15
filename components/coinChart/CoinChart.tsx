@@ -27,31 +27,42 @@ export default function CoinChart({
   initialCandles,
   initialDays = 30,
 }: CoinChartProps) {
+  // `days` is what the chart on screen actually shows; `pendingDays` is what was
+  // asked for and has not arrived. Keeping them apart is what stops 30-day
+  // candles being drawn under a 1Y axis for the length of a fetch.
   const [days, setDays] = useState(initialDays);
+  const [pendingDays, setPendingDays] = useState<number | null>(null);
   const [candles, setCandles] = useState(initialCandles);
-  const [loading, setLoading] = useState(false);
+  const [failedDays, setFailedDays] = useState<number | null>(null);
   const live = useAppSelector(selectPrice(symbol.toUpperCase()));
   const inFlight = useRef<AbortController | null>(null);
 
   // Aborts the previous request so a slow response cannot overwrite a newer one.
   const changeTimeframe = async (nextDays: number) => {
-    if (nextDays === days) return;
+    if (nextDays === days && failedDays == null) return;
 
     inFlight.current?.abort();
     const controller = new AbortController();
     inFlight.current = controller;
 
-    setDays(nextDays);
-    setLoading(true);
+    setPendingDays(nextDays);
+    setFailedDays(null);
     try {
-      setCandles(await fetchCandles(coinId, nextDays, controller.signal));
+      const next = await fetchCandles(coinId, nextDays, controller.signal);
+      // Committed together: the data and the label that describes it.
+      setCandles(next);
+      setDays(nextDays);
     } catch (error) {
       if ((error as Error).name === 'AbortError') return;
-      setCandles([]);
+      // The old candles are still true, and still the last thing known. Throwing
+      // them away to say "unavailable" loses a good chart to a failed request.
+      setFailedDays(nextDays);
     } finally {
-      if (!controller.signal.aborted) setLoading(false);
+      if (!controller.signal.aborted) setPendingDays(null);
     }
   };
+
+  const loading = pendingDays != null;
 
   const folded = applyLivePrice(candles, live);
   const change = periodChangePct(folded);
@@ -64,13 +75,31 @@ export default function CoinChart({
             {formatSignedPct(change)}
           </span>
         )}
-        <TimeframeSelector value={days} onChange={changeTimeframe} />
+        {/* Follows the click, not the data: the request is the answer to the
+            press, and aria-busy below says the chart is still catching up. */}
+        <TimeframeSelector
+          value={pendingDays ?? days}
+          onChange={changeTimeframe}
+        />
       </div>
+
+      {failedDays != null && (
+        <p className={styles.error} role="status">
+          Couldn&apos;t load that timeframe.{' '}
+          <button
+            type="button"
+            className={styles.retry}
+            onClick={() => changeTimeframe(failedDays)}
+          >
+            Try again
+          </button>
+        </p>
+      )}
 
       {folded.length < 2 ? (
         <p className={styles.empty}>Chart unavailable</p>
       ) : (
-        <div className={loading ? styles.dim : undefined}>
+        <div className={loading ? styles.dim : undefined} aria-busy={loading}>
           <CandlestickChart
             candles={folded}
             width={600}
