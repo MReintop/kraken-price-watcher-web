@@ -43,7 +43,7 @@ The only mandated comments are the `// Arrange` / `// Act` / `// Assert` markers
 
 React Testing Library cannot render an async Server Component, so Jest can never reach it. Left in the list it reads 0% forever, drags the total down, and trains everyone to ignore the number — which is how a _real_ 0% slips past. The list is an allowlist of "what Jest can actually see", and it only stays meaningful if it's maintained.
 
-The test is **async**, not "server": sync server components (the skeletons, `app/contacts/page.tsx`) render fine under RTL and stay in. Full reasoning in [docs/testing.md](docs/testing.md).
+The test is **async**, not "server": sync server components (the skeletons) render fine under RTL and stay in. Full reasoning in [docs/testing.md](docs/testing.md).
 
 ```bash
 npm test              # jest: unit + integration, ~2s

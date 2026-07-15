@@ -4,10 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import styles from './Footer.module.css';
 
-const links = [
-  { href: '/', label: 'Markets' },
-  { href: '/contacts', label: 'Contacts' },
-];
+const links = [{ href: '/', label: 'Markets' }];
 
 export default function Footer() {
   const pathname = usePathname();

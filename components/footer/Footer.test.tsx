@@ -7,17 +7,25 @@ jest.mock('next/navigation', () => ({ usePathname: jest.fn() }));
 const mockUsePathname = usePathname as jest.Mock;
 
 describe('Footer', () => {
-  it('marks the current route as active and the other as inactive', () => {
+  it('marks the route it is on as active', () => {
     // Arrange
-    mockUsePathname.mockReturnValue('/contacts');
+    mockUsePathname.mockReturnValue('/');
 
     // Act
     render(<Footer />);
 
     // Assert — next/jest maps CSS-module classes to their own names
-    expect(screen.getByRole('link', { name: 'Contacts' })).toHaveClass(
-      'active',
-    );
+    expect(screen.getByRole('link', { name: 'Markets' })).toHaveClass('active');
+  });
+
+  it('leaves the link inactive from anywhere else', () => {
+    // Arrange
+    mockUsePathname.mockReturnValue('/coins/bitcoin');
+
+    // Act
+    render(<Footer />);
+
+    // Assert
     expect(screen.getByRole('link', { name: 'Markets' })).toHaveClass('link');
   });
 
@@ -32,10 +40,6 @@ describe('Footer', () => {
     expect(screen.getByRole('link', { name: 'Markets' })).toHaveAttribute(
       'href',
       '/',
-    );
-    expect(screen.getByRole('link', { name: 'Contacts' })).toHaveAttribute(
-      'href',
-      '/contacts',
     );
   });
 });

@@ -69,7 +69,7 @@ Currently excluded, all covered in `e2e/` instead:
 | `app/page.tsx`                                                                 | sync, but renders async children — so it cannot render either     |
 | `app/api/**`                                                                   | route handlers, not components; exercised through the real server |
 
-**Adding an `async` Server Component, a page that renders one, or a route handler means adding a `!` line to `collectCoverageFrom`.** The criterion is **async**, not "server" — sync server components (the skeletons, `app/contacts/page.tsx`) render fine under RTL and stay in.
+**Adding an `async` Server Component, a page that renders one, or a route handler means adding a `!` line to `collectCoverageFrom`.** The criterion is **async**, not "server" — sync server components (the skeletons) render fine under RTL and stay in.
 
 With that list maintained, every remaining 0% is a genuine gap worth acting on. Playwright reports no coverage number at all; its signal is pass/fail.
 
