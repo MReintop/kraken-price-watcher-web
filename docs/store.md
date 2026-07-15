@@ -33,7 +33,7 @@ app/layout.tsx (server component)
 - **`makeStore` is a factory.** A module-level store instance is shared across requests on the server and leaks one user's state into another's. The store is created per-mount inside the client boundary instead.
 - **`StoreProvider` uses lazy `useState`, not `useRef`.** Same create-once-per-mount guarantee, but the value is readable during render — reading `ref.current` in render trips `react-hooks/refs` and is genuinely unsafe.
 - **The store is seeded from server data.** `seedPricesFromCoins` preloads `bySymbol` so the server-rendered HTML contains real prices. This is what the JS-disabled test in `e2e/markets.spec.ts` pins down.
-- **`live` starts `false`.** The seed is server data, not a live feed. Only `socketStatusChanged(true)` may set it.
+- **Status starts `connecting`, and only an _acknowledged subscription_ may promote it to `live`.** An open socket is not a working feed: Kraken can accept the connection and reject the subscription, and a price screen that reads "Live" over prices nobody is sending is worse than one that admits it is lost. The status is `connecting | live | stale | offline` rather than a boolean because `stale` — connected, believed healthy, silently frozen — is the state that actually hurts, and a boolean cannot hold it.
 - **One socket, not one per row.** `startKrakenTicker` subscribes to every symbol on a single connection.
 - **Ticks are coalesced.** Incoming ticks land in a `Map` keyed by symbol (latest wins) and flush as a _single_ `tickersApplied` dispatch every 250ms. Kraken pushes far faster than any UI needs; this bounds re-render rate regardless of market activity.
 - **Selectors are per-symbol.** `selectPrice(symbol)` returns just that symbol's object, so a tick changes object identity for exactly one row and only that row re-renders. This is why the list stays cheap with a live feed.
@@ -42,8 +42,10 @@ app/layout.tsx (server component)
 
 - **Symbols are UPPERCASE in the store.** CoinGecko returns `btc`; Kraken sends `BTC/USD` and the socket splits on `/`; `seedPricesFromCoins` upper-cases. Every component must call `selectPrice(symbol.toUpperCase())`. A casing mismatch renders _nothing_ — no error, no warning.
 - **`bySymbol` values are replaced, never mutated in place.** Per-row re-rendering depends on object identity changing only for ticked symbols.
-- **The socket's stop function is the effect cleanup.** `startKrakenTicker` returns it; it clears the flush interval, cancels any pending reconnect, and closes the socket. Don't drop it.
-- **Reconnect backoff doubles 1s → 30s and resets on a healthy open.** Don't replace it with a fixed interval.
+- **The socket's stop function is the effect cleanup.** `startKrakenTicker` returns it; it clears the flush interval, the staleness watchdog and any pending reconnect, and closes the socket. Don't drop it.
+- **Reconnect backoff doubles 1s → 30s and resets only on an _acknowledged_ connection.** Not on open: a server that accepts a socket and immediately drops it would otherwise reset the backoff every cycle and spin at one reconnect per second.
+- **Handlers close over their own socket and a connection generation.** A frame or a close from a connection that has already been replaced is ignored, and the tick buffer is cleared on close — a price buffered before a drop must never flush afterwards as if it were current.
+- **Any frame refreshes the watchdog, heartbeats included.** Kraken heartbeats roughly every second when the market is quiet, so silence past `STALE_AFTER_MS` means the connection is dead in a way it hasn't told us about. Quiet is not the same as broken.
 
 ## Notes
 

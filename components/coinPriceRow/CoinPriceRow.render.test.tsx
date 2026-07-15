@@ -27,7 +27,7 @@ const renderTwoRows = () => {
         BTC: { last: 62888, changePct: 1 },
         ETH: { last: 1883, changePct: 1 },
       },
-      live: true,
+      status: 'live',
     },
   });
 

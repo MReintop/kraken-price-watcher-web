@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures';
+import { test, expect, ANY_SOCKET } from './fixtures';
 
 const chart = (page: import('@playwright/test').Page) =>
   page.locator('svg').first();
@@ -102,6 +102,26 @@ test.describe('Coin detail', () => {
 
     // Assert — 400, not 30-day candles wearing a 7d label
     expect(response.status()).toBe(400);
+  });
+});
+
+test.describe('feed health', () => {
+  test('does not claim to be live until the subscription is accepted', async ({
+    page,
+  }) => {
+    // Arrange — a socket that opens and then says nothing. This is what a
+    // half-open connection, or a rejected subscription, looks like from here.
+    await page.routeWebSocket(ANY_SOCKET, (ws) => {
+      ws.onMessage(() => {});
+    });
+
+    // Act
+    await page.goto('/coins/bitcoin');
+    await expect(chart(page)).toBeVisible();
+
+    // Assert — the transport is open, and that is not the same as a feed
+    await expect(page.getByText('Connecting…')).toBeVisible();
+    await expect(page.getByText('Live')).toBeHidden();
   });
 });
 

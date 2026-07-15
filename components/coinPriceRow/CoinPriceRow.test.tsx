@@ -26,7 +26,7 @@ afterEach(() => {
 const renderWithStore = (
   bySymbol: Record<string, { last: number; changePct: number }>,
 ) => {
-  const store = makeStore({ prices: { bySymbol, live: true } });
+  const store = makeStore({ prices: { bySymbol, status: 'live' } });
   render(
     <Provider store={store}>
       <CoinPriceRow symbol="btc" />
@@ -62,7 +62,7 @@ describe('CoinPriceRow', () => {
 
   it('renders nothing when its symbol is absent from the store', () => {
     // Arrange
-    const store = makeStore({ prices: { bySymbol: {}, live: true } });
+    const store = makeStore({ prices: { bySymbol: {}, status: 'live' } });
 
     // Act
     const { container } = render(

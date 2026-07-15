@@ -1,4 +1,9 @@
-import { test as base, expect, type Page } from '@playwright/test';
+import {
+  test as base,
+  expect,
+  type Page,
+  type WebSocketRoute,
+} from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
 const WCAG_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
@@ -11,6 +16,28 @@ export const scanPage = (page: Page) =>
 // matching a hostname here would silently stop matching.
 export const ANY_SOCKET = '**/*';
 
+// Kraken answers a subscribe with one reply per symbol, and the app stays
+// "connecting" until it does — so a socket that only accepts the connection is
+// not a stand-in for Kraken, it is a stand-in for the bug this app now reports.
+export function ackSubscribe(ws: WebSocketRoute, raw: string | Buffer) {
+  let msg: { method?: string; params?: { symbol?: string[] } };
+  try {
+    msg = JSON.parse(String(raw));
+  } catch {
+    return;
+  }
+  if (msg.method !== 'subscribe') return;
+  for (const symbol of msg.params?.symbol ?? []) {
+    ws.send(
+      JSON.stringify({
+        method: 'subscribe',
+        success: true,
+        result: { channel: 'ticker', symbol },
+      }),
+    );
+  }
+}
+
 export const test = base.extend<{
   makeAxeBuilder: () => AxeBuilder;
   stubbedSocket: void;
@@ -22,7 +49,7 @@ export const test = base.extend<{
   stubbedSocket: [
     async ({ page }, use) => {
       await page.routeWebSocket(ANY_SOCKET, (ws) => {
-        ws.onMessage(() => {}); // swallow the subscribe; send no ticks
+        ws.onMessage((raw) => ackSubscribe(ws, raw)); // accept, then send no ticks
       });
       await use();
     },

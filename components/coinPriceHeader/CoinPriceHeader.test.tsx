@@ -1,7 +1,11 @@
 import { render, screen, act } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { makeStore } from '@/store/store';
-import { tickersApplied, socketStatusChanged } from '@/store/pricesSlice';
+import {
+  tickersApplied,
+  socketStatusChanged,
+  type SocketStatus,
+} from '@/store/pricesSlice';
 import CoinPriceHeader from './CoinPriceHeader';
 
 // Stubbed so AnimatedPrice's tween lands on its final value at once
@@ -25,9 +29,9 @@ afterEach(() => {
 // Arrange helper: render the header against a real store in a known state.
 const renderWithStore = (
   bySymbol: Record<string, { last: number; changePct: number }>,
-  live = false,
+  status: SocketStatus = 'connecting',
 ) => {
-  const store = makeStore({ prices: { bySymbol, live } });
+  const store = makeStore({ prices: { bySymbol, status } });
   render(
     <Provider store={store}>
       <CoinPriceHeader symbol="btc" />
@@ -47,7 +51,7 @@ describe('CoinPriceHeader', () => {
 
   it('reads as connecting until the socket reports itself live', () => {
     // Arrange / Act
-    renderWithStore({ BTC: { last: 62888, changePct: 1 } }, false);
+    renderWithStore({ BTC: { last: 62888, changePct: 1 } }, 'connecting');
 
     // Assert
     expect(screen.getByText('Connecting…')).toBeInTheDocument();
@@ -55,18 +59,49 @@ describe('CoinPriceHeader', () => {
 
   it('switches to live when the socket connects', () => {
     // Arrange
-    const store = renderWithStore(
-      { BTC: { last: 62888, changePct: 1 } },
-      false,
-    );
+    const store = renderWithStore({ BTC: { last: 62888, changePct: 1 } });
 
     // Act
     act(() => {
-      store.dispatch(socketStatusChanged(true));
+      store.dispatch(socketStatusChanged('live'));
     });
 
     // Assert
     expect(screen.getByText('Live')).toBeInTheDocument();
+  });
+
+  // The state the old boolean could not express: connected, and lying.
+  it('says so when the feed stops updating, rather than still reading live', () => {
+    // Arrange
+    const store = renderWithStore(
+      { BTC: { last: 62888, changePct: 1 } },
+      'live',
+    );
+
+    // Act — the socket is still open, but nothing has arrived for a long time
+    act(() => {
+      store.dispatch(socketStatusChanged('stale'));
+    });
+
+    // Assert
+    expect(screen.getByText('Not updating')).toBeInTheDocument();
+    expect(screen.queryByText('Live')).not.toBeInTheDocument();
+  });
+
+  it('reads as reconnecting once the socket drops', () => {
+    // Arrange
+    const store = renderWithStore(
+      { BTC: { last: 62888, changePct: 1 } },
+      'live',
+    );
+
+    // Act
+    act(() => {
+      store.dispatch(socketStatusChanged('offline'));
+    });
+
+    // Assert
+    expect(screen.getByText('Reconnecting…')).toBeInTheDocument();
   });
 
   it('shows the new price when a tick for its symbol arrives', () => {
@@ -101,7 +136,7 @@ describe('CoinPriceHeader', () => {
 
   it('renders nothing when its symbol is absent from the store', () => {
     // Arrange
-    const store = makeStore({ prices: { bySymbol: {}, live: true } });
+    const store = makeStore({ prices: { bySymbol: {}, status: 'live' } });
 
     // Act
     const { container } = render(

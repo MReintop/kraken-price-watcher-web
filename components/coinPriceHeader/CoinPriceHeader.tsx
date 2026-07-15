@@ -1,10 +1,23 @@
 'use client';
 
 import { useAppSelector } from '@/store/hooks';
-import { selectLive, selectPrice } from '@/store/pricesSlice';
+import {
+  selectSocketStatus,
+  selectPrice,
+  type SocketStatus,
+} from '@/store/pricesSlice';
 import AnimatedPrice from '@/components/animatedPrice/AnimatedPrice';
 import PriceTickIndicator from '@/components/priceTickIndicator/PriceTickIndicator';
 import styles from './CoinPriceHeader.module.css';
+
+// "Stale" is the one worth spelling out: the socket is open and the price on
+// screen is old, which is the state a Live badge would lie about.
+const STATUS_LABEL: Record<SocketStatus, string> = {
+  connecting: 'Connecting…',
+  live: 'Live',
+  stale: 'Not updating',
+  offline: 'Reconnecting…',
+};
 
 interface CoinPriceHeaderProps {
   symbol: string;
@@ -12,7 +25,7 @@ interface CoinPriceHeaderProps {
 
 export default function CoinPriceHeader({ symbol }: CoinPriceHeaderProps) {
   const data = useAppSelector(selectPrice(symbol.toUpperCase()));
-  const live = useAppSelector(selectLive);
+  const status = useAppSelector(selectSocketStatus);
   if (!data) return null;
 
   return (
@@ -26,8 +39,8 @@ export default function CoinPriceHeader({ symbol }: CoinPriceHeaderProps) {
       </div>
 
       <span className={styles.badge}>
-        <span className={live ? styles.dotLive : styles.dot} />
-        {live ? 'Live' : 'Connecting…'}
+        <span className={status === 'live' ? styles.dotLive : styles.dot} />
+        {STATUS_LABEL[status]}
       </span>
     </div>
   );

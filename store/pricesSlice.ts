@@ -8,12 +8,17 @@ export interface KrakenTick {
   changePct: number;
 }
 
+// An open socket is not a working feed. `live` means Kraken acknowledged the
+// subscription *and* has sent something since; `stale` is the dangerous state a
+// boolean cannot express — connected, believed healthy, and silently frozen.
+export type SocketStatus = 'connecting' | 'live' | 'stale' | 'offline';
+
 export interface PricesState {
   bySymbol: Record<string, { last: number; changePct: number }>;
-  live: boolean;
+  status: SocketStatus;
 }
 
-const initialState: PricesState = { bySymbol: {}, live: false };
+const initialState: PricesState = { bySymbol: {}, status: 'connecting' };
 
 export function seedPricesFromCoins(coins: Coin[]): PricesState {
   return {
@@ -26,7 +31,9 @@ export function seedPricesFromCoins(coins: Coin[]): PricesState {
         },
       ]),
     ),
-    live: false,
+    // The seed is server data, not a feed. Only an acknowledged subscription
+    // may promote this to live.
+    status: 'connecting',
   };
 }
 
@@ -48,8 +55,8 @@ const pricesSlice = createSlice({
         };
       }
     },
-    socketStatusChanged(state, action: PayloadAction<boolean>) {
-      state.live = action.payload;
+    socketStatusChanged(state, action: PayloadAction<SocketStatus>) {
+      state.status = action.payload;
     },
   },
 });
@@ -61,4 +68,4 @@ export default pricesSlice.reducer;
 // row re-renders.
 export const selectPrice = (symbol: string) => (s: RootState) =>
   s.prices.bySymbol[symbol];
-export const selectLive = (s: RootState) => s.prices.live;
+export const selectSocketStatus = (s: RootState) => s.prices.status;

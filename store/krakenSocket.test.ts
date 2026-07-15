@@ -31,6 +31,15 @@ const tickerMessage = (data: unknown) => ({
   data: JSON.stringify({ channel: 'ticker', data }),
 });
 
+// Kraken replies to a subscribe with one of these per symbol.
+const subscribeReply = (success = true) => ({
+  data: JSON.stringify({
+    method: 'subscribe',
+    success,
+    result: { channel: 'ticker', symbol: 'BTC/USD' },
+  }),
+});
+
 let dispatch: jest.Mock;
 
 beforeEach(() => {
@@ -44,17 +53,19 @@ afterEach(() => {
   jest.useRealTimers();
 });
 
-// Arrange helper: start the ticker and open its socket.
-const startAndOpen = (symbols = ['btc', 'eth']) => {
+// Arrange helper: start the ticker, open its socket, and let Kraken accept the
+// subscription — the point at which the feed is actually usable.
+const startAndSubscribe = (symbols = ['btc', 'eth']) => {
   const stop = startKrakenTicker(symbols, dispatch as unknown as AppDispatch);
   latest().onopen?.();
+  latest().onmessage?.(subscribeReply());
   return stop;
 };
 
 describe('startKrakenTicker', () => {
   it('subscribes to every symbol as a USD pair on one connection', () => {
     // Arrange / Act
-    startAndOpen(['btc', 'eth']);
+    startAndSubscribe(['btc', 'eth']);
 
     // Assert — one socket, both pairs
     expect(FakeWebSocket.instances).toHaveLength(1);
@@ -64,17 +75,38 @@ describe('startKrakenTicker', () => {
     });
   });
 
-  it('reports the socket live once it opens', () => {
+  it('stays connecting while the transport is open but unacknowledged', () => {
+    // Arrange / Act — opened, subscribe sent, no reply yet
+    startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
+    latest().onopen?.();
+
+    // Assert — an open socket says nothing about whether Kraken accepted us
+    expect(dispatch).not.toHaveBeenCalledWith(socketStatusChanged('live'));
+  });
+
+  it('reports live once Kraken acknowledges the subscription', () => {
     // Arrange / Act
-    startAndOpen();
+    startAndSubscribe();
 
     // Assert
-    expect(dispatch).toHaveBeenCalledWith(socketStatusChanged(true));
+    expect(dispatch).toHaveBeenCalledWith(socketStatusChanged('live'));
+  });
+
+  it('does not report live when the subscription is rejected', () => {
+    // Arrange
+    startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
+    latest().onopen?.();
+
+    // Act — Kraken answers, and refuses
+    latest().onmessage?.(subscribeReply(false));
+
+    // Assert — a rejected feed showing "Live" is the worst of both
+    expect(dispatch).not.toHaveBeenCalledWith(socketStatusChanged('live'));
   });
 
   it('coalesces a burst of ticks into a single dispatch per flush window', () => {
     // Arrange
-    startAndOpen();
+    startAndSubscribe();
 
     // Act — three ticks inside one 250ms window
     for (const last of [1, 2, 3]) {
@@ -93,7 +125,7 @@ describe('startKrakenTicker', () => {
 
   it('keeps only the latest tick per symbol within a window', () => {
     // Arrange
-    startAndOpen();
+    startAndSubscribe();
 
     // Act
     latest().onmessage?.(
@@ -112,7 +144,7 @@ describe('startKrakenTicker', () => {
 
   it("strips the quote currency, matching the store's symbol keys", () => {
     // Arrange
-    startAndOpen();
+    startAndSubscribe();
 
     // Act
     latest().onmessage?.(
@@ -128,7 +160,7 @@ describe('startKrakenTicker', () => {
 
   it('does not dispatch when nothing arrived in the window', () => {
     // Arrange
-    startAndOpen();
+    startAndSubscribe();
     dispatch.mockClear();
 
     // Act
@@ -140,7 +172,7 @@ describe('startKrakenTicker', () => {
 
   it('ignores messages from other channels', () => {
     // Arrange
-    startAndOpen();
+    startAndSubscribe();
     dispatch.mockClear();
 
     // Act
@@ -155,7 +187,7 @@ describe('startKrakenTicker', () => {
 
   it('survives malformed JSON without throwing', () => {
     // Arrange
-    startAndOpen();
+    startAndSubscribe();
 
     // Act / Assert
     expect(() => latest().onmessage?.({ data: 'not json{' })).not.toThrow();
@@ -163,18 +195,60 @@ describe('startKrakenTicker', () => {
 
   it('reports the socket down when it closes', () => {
     // Arrange
-    startAndOpen();
+    startAndSubscribe();
 
     // Act
     latest().onclose?.();
 
     // Assert
-    expect(dispatch).toHaveBeenCalledWith(socketStatusChanged(false));
+    expect(dispatch).toHaveBeenCalledWith(socketStatusChanged('offline'));
+  });
+
+  it('reports not-updating when an open feed goes silent', () => {
+    // Arrange
+    startAndSubscribe();
+    dispatch.mockClear();
+
+    // Act — the socket never closes; nothing arrives, not even a heartbeat
+    jest.advanceTimersByTime(10_000);
+
+    // Assert — frozen prices under a "Live" badge is the failure worth naming
+    expect(dispatch).toHaveBeenCalledWith(socketStatusChanged('stale'));
+  });
+
+  it('returns to live when a frame arrives after silence', () => {
+    // Arrange
+    startAndSubscribe();
+    jest.advanceTimersByTime(10_000);
+    dispatch.mockClear();
+
+    // Act
+    latest().onmessage?.(
+      tickerMessage([{ symbol: 'BTC/USD', last: 5, change_pct: 1 }]),
+    );
+
+    // Assert
+    expect(dispatch).toHaveBeenCalledWith(socketStatusChanged('live'));
+  });
+
+  it('treats a heartbeat as proof the feed is alive', () => {
+    // Arrange
+    startAndSubscribe();
+    dispatch.mockClear();
+
+    // Act — a quiet market: heartbeats, no ticks, well past the stale window
+    for (let i = 0; i < 3; i++) {
+      jest.advanceTimersByTime(5_000);
+      latest().onmessage?.({ data: JSON.stringify({ channel: 'heartbeat' }) });
+    }
+
+    // Assert — quiet is not the same as broken
+    expect(dispatch).not.toHaveBeenCalledWith(socketStatusChanged('stale'));
   });
 
   it('reconnects after a drop', () => {
     // Arrange
-    startAndOpen();
+    startAndSubscribe();
 
     // Act
     latest().onclose?.();
@@ -186,7 +260,7 @@ describe('startKrakenTicker', () => {
 
   it('backs off exponentially across repeated failures', () => {
     // Arrange
-    startAndOpen();
+    startAndSubscribe();
 
     // Act — first retry at 1s
     latest().onclose?.();
@@ -203,14 +277,15 @@ describe('startKrakenTicker', () => {
     expect(FakeWebSocket.instances).toHaveLength(3);
   });
 
-  it('resets the backoff once a connection succeeds', () => {
+  it('resets the backoff once a subscription is acknowledged', () => {
     // Arrange — fail once so the backoff grows
-    startAndOpen();
+    startAndSubscribe();
     latest().onclose?.();
     jest.advanceTimersByTime(1000);
 
-    // Act — the retry connects successfully, then drops again
+    // Act — the retry connects, is acknowledged, then drops again
     latest().onopen?.();
+    latest().onmessage?.(subscribeReply());
     latest().onclose?.();
     jest.advanceTimersByTime(1000);
 
@@ -218,9 +293,66 @@ describe('startKrakenTicker', () => {
     expect(FakeWebSocket.instances).toHaveLength(3);
   });
 
+  it('keeps backing off when a connection opens but never acknowledges', () => {
+    // Arrange — one failure, so the next wait is 2s
+    startAndSubscribe();
+    latest().onclose?.();
+    jest.advanceTimersByTime(1000);
+
+    // Act — a server that accepts the socket and drops it without subscribing
+    latest().onopen?.();
+    latest().onclose?.();
+    jest.advanceTimersByTime(1000);
+
+    // Assert — still 2 sockets: resetting on open would spin here at one
+    // reconnect a second, for as long as the server kept accepting
+    expect(FakeWebSocket.instances).toHaveLength(2);
+  });
+
+  it('drops ticks left buffered by a connection that died', () => {
+    // Arrange — a tick lands, but the flush window has not elapsed yet
+    startAndSubscribe();
+    latest().onmessage?.(
+      tickerMessage([{ symbol: 'BTC/USD', last: 1, change_pct: 1 }]),
+    );
+
+    // Act — the socket drops, and a reconnect starts a fresh flush timer
+    latest().onclose?.();
+    jest.advanceTimersByTime(1000);
+    latest().onopen?.();
+    latest().onmessage?.(subscribeReply());
+    jest.advanceTimersByTime(250);
+
+    // Assert — a price from before the drop must not surface as a current one
+    const ticks = dispatch.mock.calls.filter(
+      (call) => call[0].type === tickersApplied.type,
+    );
+    expect(ticks).toHaveLength(0);
+  });
+
+  it('ignores a frame from a connection it has already replaced', () => {
+    // Arrange — keep a handle on the socket that is about to be superseded
+    startAndSubscribe();
+    const superseded = latest();
+    superseded.onclose?.();
+    jest.advanceTimersByTime(1000);
+    latest().onopen?.();
+    latest().onmessage?.(subscribeReply());
+    dispatch.mockClear();
+
+    // Act — the dead socket delivers late
+    superseded.onmessage?.(
+      tickerMessage([{ symbol: 'BTC/USD', last: 99, change_pct: 1 }]),
+    );
+    jest.advanceTimersByTime(250);
+
+    // Assert
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
   it('closes the socket when stopped', () => {
     // Arrange
-    const stop = startAndOpen();
+    const stop = startAndSubscribe();
     const socket = latest();
 
     // Act
@@ -232,7 +364,7 @@ describe('startKrakenTicker', () => {
 
   it('stops flushing once stopped', () => {
     // Arrange
-    const stop = startAndOpen();
+    const stop = startAndSubscribe();
     latest().onmessage?.(
       tickerMessage([{ symbol: 'BTC/USD', last: 1, change_pct: 1 }]),
     );
@@ -248,7 +380,7 @@ describe('startKrakenTicker', () => {
 
   it('does not reconnect after being stopped', () => {
     // Arrange
-    const stop = startAndOpen();
+    const stop = startAndSubscribe();
 
     // Act — a close racing with unmount must not resurrect the socket
     stop();
@@ -261,7 +393,7 @@ describe('startKrakenTicker', () => {
 
   it('closes the socket on error, so the close path drives the reconnect', () => {
     // Arrange
-    startAndOpen();
+    startAndSubscribe();
     const socket = latest();
 
     // Act

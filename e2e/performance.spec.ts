@@ -1,5 +1,5 @@
 import type { Page, WebSocketRoute } from '@playwright/test';
-import { test, expect, ANY_SOCKET } from './fixtures';
+import { test, expect, ANY_SOCKET, ackSubscribe } from './fixtures';
 
 // ---------------------------------------------------------------------------
 // Payload budgets
@@ -100,8 +100,9 @@ async function openWithMockedSocket(page: Page) {
   });
 
   await page.routeWebSocket(ANY_SOCKET, (ws) => {
-    // Nothing is proxied to the real Kraken; swallow the subscribe frame.
-    ws.onMessage(() => {});
+    // Nothing is proxied to the real Kraken; accept the subscribe as Kraken
+    // would, or the app never leaves "Connecting…".
+    ws.onMessage((raw) => ackSubscribe(ws, raw));
     resolveSocket(ws);
   });
 
