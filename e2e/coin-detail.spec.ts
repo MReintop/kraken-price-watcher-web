@@ -95,4 +95,31 @@ test.describe('Coin detail', () => {
     // Assert — catches hydration mismatches, which jsdom cannot surface
     expect(errors).toEqual([]);
   });
+
+  test('rejects a timeframe it has no interval for', async ({ request }) => {
+    // Act — the selector cannot ask for 7d, but a hand-typed URL can
+    const response = await request.get('/api/chart/bitcoin?days=7');
+
+    // Assert — 400, not 30-day candles wearing a 7d label
+    expect(response.status()).toBe(400);
+  });
+});
+
+// Every test above runs in the default en-US, where a formatter left on the
+// runtime locale renders identically on both sides and the bug is invisible.
+test.describe('under a non-en-US locale', () => {
+  test.use({ locale: 'de-DE' });
+
+  test('formats prices in the pinned locale, not the browser one', async ({
+    page,
+  }) => {
+    // Act
+    await page.goto('/coins/bitcoin');
+    await expect(chart(page)).toBeVisible();
+
+    // Assert — on the runtime locale this hydrates to "$62.888,00", replacing
+    // the text the server sent. Console errors cannot see it: a production
+    // React patches a text mismatch silently.
+    await expect(page.getByText('$62,888.00')).toBeVisible();
+  });
 });
