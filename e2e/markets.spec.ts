@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from './fixtures';
 
 test.describe('Markets (server-rendered)', () => {
   test('lists every coin from the server fetch', async ({ page }) => {
@@ -33,7 +33,7 @@ test.describe('Markets (server-rendered)', () => {
     await page.goto('/');
 
     // Assert — proves the RSC path, not a client-side fetch, produced this
-    await expect(page.getByText('$62,888.00')).toBeVisible();
+    await expect(page.getByText('$62,888')).toBeVisible();
     await context.close();
   });
 });

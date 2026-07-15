@@ -74,8 +74,9 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: npx playwright install-deps chromium
 
-      # playwright.config.ts starts the stub upstream and builds against it, so
-      # this never reaches the real CoinGecko or Kraken.
+      # playwright.config.ts starts the stub and builds against it — REST bases
+      # and the socket URL alike — so the bundle under test has no route to the
+      # real CoinGecko or Kraken.
       - run: npm run test:e2e
 
       - name: Upload Playwright report

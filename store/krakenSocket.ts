@@ -3,7 +3,12 @@ import { socketStatusChanged, tickersApplied, KrakenTick } from './pricesSlice';
 
 // One connection for every symbol, coalescing ticks into at most one dispatch
 // per FLUSH_MS.
-const WS_URL = 'wss://ws.kraken.com/v2';
+//
+// Overridable so the e2e build cannot reach the exchange: NEXT_PUBLIC_ is
+// inlined at build time, so a suite built with it set has no route to Kraken at
+// all, rather than relying on every spec remembering to intercept.
+const WS_URL =
+  process.env.NEXT_PUBLIC_KRAKEN_WS_URL ?? 'wss://ws.kraken.com/v2';
 const FLUSH_MS = 250;
 
 interface KrakenTickerMessage {

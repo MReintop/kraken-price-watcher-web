@@ -7,10 +7,31 @@ const WCAG_AA = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'];
 export const scanPage = (page: Page) =>
   new AxeBuilder({ page }).withTags(WCAG_AA);
 
-// A scanner per test, so the ruleset is declared once. Call it at whatever state
-// the test has driven the page to — a scan on load only ever checks the state the
-// server sent.
-export const test = base.extend<{ makeAxeBuilder: () => AxeBuilder }>({
+// Every socket, not Kraken's by name: the URL is redirected at build time, so
+// matching a hostname here would silently stop matching.
+export const ANY_SOCKET = '**/*';
+
+export const test = base.extend<{
+  makeAxeBuilder: () => AxeBuilder;
+  stubbedSocket: void;
+}>({
+  // Automatic, and deliberately not opt-in — a spec cannot forget it. Belt and
+  // braces with the redirected build URL: nothing here reaches the exchange. A
+  // spec that wants to drive ticks registers its own route on top; the later
+  // registration wins.
+  stubbedSocket: [
+    async ({ page }, use) => {
+      await page.routeWebSocket(ANY_SOCKET, (ws) => {
+        ws.onMessage(() => {}); // swallow the subscribe; send no ticks
+      });
+      await use();
+    },
+    { auto: true },
+  ],
+
+  // A scanner per test, so the ruleset is declared once. Call it at whatever
+  // state the test has driven the page to — a scan on load only ever checks the
+  // state the server sent.
   makeAxeBuilder: async ({ page }, use) => {
     await use(() => scanPage(page));
   },

@@ -4,10 +4,14 @@ import { defineConfig, devices } from '@playwright/test';
 const STUB_PORT = 4001;
 const APP_PORT = 3100;
 
-// Both upstreams point at the stub, so the build renders from fixed data.
+// Both upstreams point at the stub, so the build renders from fixed data. The
+// socket URL is redirected too: inlined at build time, it means the bundle under
+// test carries no route to the real exchange, so a spec that forgets to
+// intercept fails locally instead of quietly trading on live data.
 const stubEnv = [
   `COINGECKO_BASE_URL=http://localhost:${STUB_PORT}/coingecko`,
   `KRAKEN_BASE_URL=http://localhost:${STUB_PORT}/kraken`,
+  `NEXT_PUBLIC_KRAKEN_WS_URL=ws://localhost:${STUB_PORT}/socket`,
   // Own build directory, so a running `next dev` cannot clobber this build.
   'NEXT_DIST_DIR=.next-e2e',
 ].join(' ');

@@ -50,7 +50,9 @@ Worked examples: `CoinPriceHeader.test.tsx` covers `tickersApplied`, `socketStat
 
 ## Server components and the mocking boundary
 
-The coin/candle fetches run in **Node** (RSC and route handlers), so they never pass through the browser and **Playwright's `page.route()` cannot intercept them**. Mocking for server-rendered pages therefore happens _upstream of Node_: `COINGECKO_BASE_URL` points at the stub in `e2e/stub/coingecko.mjs`, and the app is **built** against it (the coin pages are SSG — the stub must be up before `next build` or the fixtures never reach the HTML).
+The coin/candle fetches run in **Node** (RSC and route handlers), so they never pass through the browser and **Playwright's `page.route()` cannot intercept them**. Mocking for server-rendered pages therefore happens _upstream of Node_: `COINGECKO_BASE_URL` and `KRAKEN_BASE_URL` point at the stub in `e2e/stub/upstreams.mjs`, and the app is **built** against it (the coin pages are SSG — the stub must be up before `next build` or the fixtures never reach the HTML).
+
+`NEXT_PUBLIC_KRAKEN_WS_URL` is redirected in the same build, for a different reason: the socket _does_ run in the browser, but relying on each spec to intercept it means one forgotten call sends CI to the live exchange. Inlining a stub URL at build time makes that unreachable rather than merely discouraged — `e2e/fixtures.ts` then intercepts every socket automatically, and a spec that wants to drive ticks registers its own route on top.
 
 `page.route()` is still the right tool for genuinely client-side requests, such as `/api/chart/*` — see the superseded-response test in `e2e/coin-detail.spec.ts`.
 

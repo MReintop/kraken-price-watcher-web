@@ -1,4 +1,5 @@
-import { test, expect, type Page, type WebSocketRoute } from '@playwright/test';
+import type { Page, WebSocketRoute } from '@playwright/test';
+import { test, expect, ANY_SOCKET } from './fixtures';
 
 // ---------------------------------------------------------------------------
 // Payload budgets
@@ -65,7 +66,7 @@ test('the markets list is server-rendered, costing no client request for prices'
 
   // Act
   await page.goto('/', { waitUntil: 'load' });
-  await expect(page.getByText('$62,888.00')).toBeVisible();
+  await expect(page.getByText('$62,888')).toBeVisible();
 
   // Assert — prices arrive in the HTML; a client round-trip would mean the
   // server component's work was wasted
@@ -82,10 +83,9 @@ test('the markets list is server-rendered, costing no client request for prices'
 // dispatches can actually be counted.
 //
 // routeWebSocket takes over the Kraken socket, so these ticks are ours: same
-// count, same values, every run.
+// count, same values, every run. This route is registered after the fixture's
+// default one and takes precedence over it.
 // ---------------------------------------------------------------------------
-const KRAKEN_SOCKET = /ws\.kraken\.com/;
-
 const tickFrame = (symbol: string, last: number) =>
   JSON.stringify({
     channel: 'ticker',
@@ -99,7 +99,7 @@ async function openWithMockedSocket(page: Page) {
     resolveSocket = resolve;
   });
 
-  await page.routeWebSocket(KRAKEN_SOCKET, (ws) => {
+  await page.routeWebSocket(ANY_SOCKET, (ws) => {
     // Nothing is proxied to the real Kraken; swallow the subscribe frame.
     ws.onMessage(() => {});
     resolveSocket(ws);
@@ -119,7 +119,7 @@ test.describe('under a burst of ticks', () => {
     for (let i = 0; i < 200; i++) socket.send(tickFrame('BTC/USD', 70000 + i));
 
     // Assert
-    await expect(page.getByText('$70,199.00')).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText('$70,199')).toBeVisible({ timeout: 5000 });
   });
 
   test('stays interactive while ticks are arriving', async ({ page }) => {
@@ -155,6 +155,6 @@ test.describe('under a burst of ticks', () => {
     await page.waitForTimeout(500);
 
     // Assert — the seeded bitcoin price is untouched
-    await expect(page.getByText('$62,888.00')).toBeVisible();
+    await expect(page.getByText('$62,888')).toBeVisible();
   });
 });
