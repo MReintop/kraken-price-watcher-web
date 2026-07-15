@@ -2,9 +2,17 @@
 
 Live cryptocurrency prices, streamed from Kraken's WebSocket feed and rendered on a server-first Next.js stack.
 
-**[View the live demo →](https://kraken-price-watcher-web.vercel.app/)**
+**[View the live demo →](https://kraken-price-watcher-web.vercel.app/)** · [React Native sibling →](https://github.com/MReintop/kraken-price-watcher)
 
 [![CI](https://github.com/MReintop/kraken-price-watcher-web/actions/workflows/ci.yml/badge.svg)](https://github.com/MReintop/kraken-price-watcher-web/actions/workflows/ci.yml)
+
+![The markets page: eight coins with live prices and 24-hour change](docs/screenshot.png)
+
+- **One socket, coalesced** — a single Kraken connection for every symbol, buffered into at most one Redux dispatch per 250ms, latest tick per symbol winning.
+- **RSC-first, and it can't regress** — prices are in the HTML on first paint, and an e2e test asserts the markets page makes **zero** client requests for prices.
+- **Accessibility is driven, not just scanned** — WCAG 2.1 AA across every route, including states you have to interact to reach: the error state, a timeframe switch, client-side navigation.
+- **Byte budgets, not timings** — each route budgets its JS and total transfer a few percent above the current build, because bytes are deterministic and wall-clock isn't.
+- **Hermetic CI** — the e2e suite builds against a stub upstream, so an outage at CoinGecko or Kraken can't turn the pipeline red.
 
 ## What it does
 
