@@ -64,9 +64,9 @@ Currently excluded, all covered in `e2e/` instead:
 
 | Excluded                                                                       | Why                                                                                                                            |
 | ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------ |
-| `app/layout.tsx`, `app/coins/**`                                               | `async` Server Components                                                                                                      |
+| `app/(markets)/layout.tsx`, `app/(markets)/coins/**`                           | `async` Server Components                                                                                                      |
 | `components/markets/Markets.tsx`, `components/marketSummary/MarketSummary.tsx` | `async` Server Components                                                                                                      |
-| `app/page.tsx`                                                                 | sync, but renders async children — so it cannot render either                                                                  |
+| `app/(markets)/page.tsx`, `app/layout.tsx`                                     | sync, but render async children — so they cannot render either                                                                 |
 | `app/api/**`                                                                   | route handlers, not components; exercised through the real server                                                              |
 | `app/error.tsx`, `app/global-error.tsx`                                        | Next owns when they mount, and one renders its own `<html>`; the UI they share is `components/errorState`, which Jest does see |
 

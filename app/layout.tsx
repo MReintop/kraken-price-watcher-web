@@ -2,8 +2,6 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
-import StoreProvider from '@/components/storeProvider/StoreProvider';
-import { getCoins } from '@/lib/coins';
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -24,13 +22,14 @@ interface RootLayoutProps {
   children: React.ReactNode;
 }
 
-export default async function RootLayout({ children }: RootLayoutProps) {
-  const coins = await getCoins();
-
+// Presentation only, and deliberately not async: whatever is fetched here is
+// fetched for every route, and the routes that need market data say so
+// themselves in app/(markets)/layout.tsx.
+export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
       <body>
-        <StoreProvider initialCoins={coins}>{children}</StoreProvider>
+        {children}
         <Analytics />
       </body>
     </html>

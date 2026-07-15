@@ -17,8 +17,9 @@ components/storeProvider/StoreProvider.tsx   the 'use client' boundary that owns
 ## The flow
 
 ```
-app/layout.tsx (server component)
+app/(markets)/layout.tsx (server component)
   └─ await getCoins()                    ← server fetch, once per request
+      (the root layout stays static: a 404 should not wait on an exchange)
       └─ <StoreProvider initialCoins>    ← 'use client' boundary
           ├─ makeStore({ prices: seedPricesFromCoins(initialCoins) })
           │     first paint already has real prices — no spinner, no round-trip

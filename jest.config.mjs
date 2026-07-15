@@ -40,12 +40,13 @@ const config = {
     '!**/*.test.{ts,tsx}',
     '!**/*.d.ts',
     // async Server Components: RTL cannot render them.
-    '!app/layout.tsx',
-    '!app/coins/**',
+    '!app/(markets)/layout.tsx',
+    '!app/(markets)/coins/**',
     '!components/markets/Markets.tsx',
     '!components/marketSummary/MarketSummary.tsx',
     // Sync, but renders async children.
-    '!app/page.tsx',
+    '!app/(markets)/page.tsx',
+    '!app/layout.tsx',
     // Route handlers, not components.
     '!app/api/**',
     // Error boundaries: Next owns when they mount, and global-error.tsx renders
