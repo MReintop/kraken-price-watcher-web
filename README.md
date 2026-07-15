@@ -1,26 +1,47 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Kraken Price Watcher
 
+Live cryptocurrency prices, streamed from Kraken's WebSocket feed and rendered on a server-first Next.js stack.
 
-DEMO : https://kraken-price-watcher-web.vercel.app/
-## Getting Started
+**[View the live demo →](https://kraken-price-watcher-web.vercel.app/)**
 
-First, run the development server:
+[![CI](https://github.com/MReintop/kraken-price-watcher-web/actions/workflows/ci.yml/badge.svg)](https://github.com/MReintop/kraken-price-watcher-web/actions/workflows/ci.yml)
+
+## What it does
+
+A markets page lists eight tracked coins with their price and 24-hour change; each coin has a detail page with a candlestick chart over a selectable timeframe. Prices tick live — one WebSocket connection, shared across every row on the page.
+
+## How it's built
+
+**Prices come from exactly one source.** Coin identity (name, icon, market cap) comes from CoinGecko; every _price_ — the initial server render, the candles, and the live ticks — comes from Kraken. Mixing the two would mean two numbers on screen that disagree by a few dollars and no way to say which is right.
+
+**The server renders what it can; the client only does what it must.** The markets list and the coin detail pages are Server Components fetching in Node, so prices are in the HTML on first paint rather than after a client round-trip. The only client-side work is the live socket and the chart interaction — and `e2e/performance.spec.ts` asserts the markets page makes **zero** client requests for prices, so that split can't silently regress.
+
+**One socket, coalesced.** `store/krakenSocket.ts` opens a single connection for all symbols and buffers ticks into at most one Redux dispatch per 250ms, keeping the latest tick per symbol. Reconnects use exponential backoff.
+
+|               |                                                                       |
+| ------------- | --------------------------------------------------------------------- |
+| **Framework** | Next.js 16 (App Router, RSC, SSG + ISR)                               |
+| **UI**        | React 19, CSS Modules                                                 |
+| **State**     | Redux Toolkit — client state only, see [docs/store.md](docs/store.md) |
+| **Data**      | Kraken REST + WebSocket v2, CoinGecko for metadata                    |
+| **Tests**     | Jest + React Testing Library, Playwright, axe-core                    |
+
+Architecture notes worth reading: **[docs/store.md](docs/store.md)** (why the store is a per-request factory, the tick coalescing, the symbol-casing invariant) and **[docs/testing.md](docs/testing.md)**.
+
+## Running locally
+
+Requires Node 22 (see `.nvmrc`).
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+npm run dev      # http://localhost:3002
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+No API keys or environment variables are needed — both upstreams are public. `COINGECKO_BASE_URL` and `KRAKEN_BASE_URL` exist only so the tests can point at a stub.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run build && npm start   # production build
+```
 
 ## Testing
 
@@ -105,17 +126,8 @@ Playwright deliberately reports no coverage number. Its data maps to minified bu
 
 Deeper reasoning: [docs/testing.md](docs/testing.md). Store architecture: [docs/store.md](docs/store.md).
 
-## Learn More
+## CI & deployment
 
-To learn more about Next.js, take a look at the following resources:
+Every push and pull request runs the full suite on GitHub Actions (`.github/workflows/ci.yml`): lint, typecheck and Jest in one job, Playwright in another. CI never touches the real CoinGecko or Kraken — the e2e job builds against `e2e/stub/upstreams.mjs`, so a run is hermetic and an upstream outage can't turn the pipeline red.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Deploys go to Vercel on push to `main`; pull requests get their own preview URL. The coin pages are SSG with `revalidate: 30`, so the build does hit the live upstreams — `lib/http.ts` retries 429s and 5xx with jittered backoff, which matters because a build renders pages across parallel workers.
