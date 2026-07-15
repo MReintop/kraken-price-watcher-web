@@ -8,6 +8,8 @@ const APP_PORT = 3100;
 const stubEnv = [
   `COINGECKO_BASE_URL=http://localhost:${STUB_PORT}/coingecko`,
   `KRAKEN_BASE_URL=http://localhost:${STUB_PORT}/kraken`,
+  // Own build directory, so a running `next dev` cannot clobber this build.
+  'NEXT_DIST_DIR=.next-e2e',
 ].join(' ');
 
 export default defineConfig({
