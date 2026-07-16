@@ -17,7 +17,7 @@ const renderWithStore = (
   });
   render(
     <Provider store={store}>
-      <CoinPriceRow symbol="btc" changePct={changePct} />
+      <CoinPriceRow priceDecimals={1} symbol="btc" changePct={changePct} />
     </Provider>,
   );
   return store;
@@ -32,7 +32,7 @@ describe('CoinPriceRow', () => {
 
     // Assert
     expect(screen.getByText('Not available')).toBeInTheDocument();
-    expect(screen.getByText('$62,888')).toHaveClass('priceStale');
+    expect(screen.getByText('$62,888.0')).toHaveClass('priceStale');
   });
 
   it('says nothing of the sort for a symbol that is ticking', () => {
@@ -41,7 +41,7 @@ describe('CoinPriceRow', () => {
 
     // Assert — a neighbour's rejection is not this row's problem
     expect(screen.queryByText('Not available')).not.toBeInTheDocument();
-    expect(screen.getByText('$62,888')).not.toHaveClass('priceStale');
+    expect(screen.getByText('$62,888.0')).not.toHaveClass('priceStale');
   });
 
   it('mutes the price when the feed itself has stopped updating', () => {
@@ -50,7 +50,7 @@ describe('CoinPriceRow', () => {
 
     // Assert — the last price we were given must not read as the last one
     // traded. The feed's own state is named once, above the list.
-    expect(screen.getByText('$62,888')).toHaveClass('priceStale');
+    expect(screen.getByText('$62,888.0')).toHaveClass('priceStale');
     expect(screen.queryByText('Not available')).not.toBeInTheDocument();
   });
 
@@ -59,7 +59,7 @@ describe('CoinPriceRow', () => {
     renderWithStore({ BTC: 62888 }, -1.45, [], 'offline');
 
     // Assert
-    expect(screen.getByText('$62,888')).toHaveClass('priceStale');
+    expect(screen.getByText('$62,888.0')).toHaveClass('priceStale');
   });
 
   it('leaves a seeded price plain while the socket is still connecting', () => {
@@ -68,7 +68,7 @@ describe('CoinPriceRow', () => {
 
     // Assert — that price is the server's own, and current until the feed
     // says otherwise; muting it on every page load would say nothing
-    expect(screen.getByText('$62,888')).not.toHaveClass('priceStale');
+    expect(screen.getByText('$62,888.0')).not.toHaveClass('priceStale');
   });
 
   it('renders the seeded price and change for its symbol', () => {
@@ -76,7 +76,7 @@ describe('CoinPriceRow', () => {
     renderWithStore({ BTC: 62888 });
 
     // Assert
-    expect(screen.getByText(/62,888/)).toBeInTheDocument();
+    expect(screen.getByText(/62,888\.0/)).toBeInTheDocument();
     expect(screen.getByText(/1\.45%/)).toBeInTheDocument();
   });
 
@@ -102,7 +102,7 @@ describe('CoinPriceRow', () => {
     // Act
     const { container } = render(
       <Provider store={store}>
-        <CoinPriceRow symbol="btc" changePct={1} />
+        <CoinPriceRow priceDecimals={1} symbol="btc" changePct={1} />
       </Provider>,
     );
 

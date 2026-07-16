@@ -1,4 +1,8 @@
-import { fetchKrakenPrices, fetchKrakenCandles } from './kraken';
+import {
+  fetchKrakenPrices,
+  fetchKrakenCandles,
+  fetchKrakenPairDecimals,
+} from './kraken';
 
 const envelope = (result: unknown, error: string[] = []) => ({
   ok: true,
@@ -7,11 +11,13 @@ const envelope = (result: unknown, error: string[] = []) => ({
   json: async () => ({ error, result }),
 });
 
+// Kraken's rows satisfy l <= o,c <= h, and lib/kraken.ts rejects any that do
+// not — so the wick stretches to whatever close a test asks for.
 const ohlcRow = (time: number, close: string) => [
   time,
   '100.0',
-  '110.0',
-  '90.0',
+  String(Math.max(110, Number(close))),
+  String(Math.min(90, Number(close))),
   close,
   '100.0',
   '1.0',
@@ -83,6 +89,69 @@ describe('fetchKrakenPrices', () => {
     expect(prices.get('SOLUSD')).toBe(142.5);
   });
 
+  // Number('') is 0, and so are Number(null), Number(false) and Number([]) —
+  // each one a finite number, and each one a real-looking $0.00 on a price row.
+  it.each([
+    ['an empty string', ''],
+    ['null', null],
+    ['false', false],
+    ['an array', []],
+    ['a nested array', ['64788.0']],
+    ['undefined', undefined],
+    ['a non-numeric string', 'sixty thousand'],
+  ])('rejects a last price given as %s', async (_label, price) => {
+    // Arrange
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        envelope({ XXBTZUSD: { c: [price, '1.0'] } }),
+      ) as unknown as typeof fetch;
+
+    // Act / Assert
+    await expect(fetchKrakenPrices(['XXBTZUSD'])).rejects.toThrow(
+      'expected a number',
+    );
+  });
+
+  it.each([
+    ['zero', '0'],
+    ['a negative price', '-64788.0'],
+  ])('rejects a last price of %s, which is not a trade', async (_l, price) => {
+    // Arrange
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        envelope({ XXBTZUSD: { c: [price, '1.0'] } }),
+      ) as unknown as typeof fetch;
+
+    // Act / Assert
+    await expect(fetchKrakenPrices(['XXBTZUSD'])).rejects.toThrow(
+      'expected a positive price',
+    );
+  });
+
+  // Valid JSON says nothing about being this API: a proxy error page parses too.
+  it.each([
+    ['is not an object', 'gateway timeout'],
+    ['is null', null],
+    ['carries no error array', { result: {} }],
+    ['carries no result object', { error: [] }],
+    ['carries a non-object result', { error: [], result: 'nope' }],
+  ])('rejects an envelope that %s', async (_label, body) => {
+    // Arrange
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: { get: () => null },
+      json: async () => body,
+    }) as unknown as typeof fetch;
+
+    // Act / Assert
+    await expect(fetchKrakenPrices(['XXBTZUSD'])).rejects.toThrow(
+      'unrecognised response envelope',
+    );
+  });
+
   it('throws on an error body, which Kraken sends with HTTP 200', async () => {
     // Arrange — response.ok is true here; only the error array reveals the failure
     global.fetch = jest
@@ -96,6 +165,64 @@ describe('fetchKrakenPrices', () => {
       'Unknown asset pair',
     );
   });
+});
+
+describe('fetchKrakenPairDecimals', () => {
+  it('reads the price precision each market publishes', async () => {
+    // Arrange — Kraken quotes BTC/USD to a tenth of a dollar
+    global.fetch = jest.fn().mockResolvedValue(
+      envelope({
+        XXBTZUSD: { altname: 'XBTUSD', pair_decimals: 1 },
+        SOLUSD: { altname: 'SOLUSD', pair_decimals: 2 },
+      }),
+    ) as unknown as typeof fetch;
+
+    // Act
+    const decimals = await fetchKrakenPairDecimals(['XXBTZUSD', 'SOLUSD']);
+
+    // Assert
+    expect(decimals.get('XXBTZUSD')).toBe(1);
+    expect(decimals.get('SOLUSD')).toBe(2);
+  });
+
+  it('accepts a market that trades in whole units', async () => {
+    // Arrange
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        envelope({ SOMEUSD: { pair_decimals: 0 } }),
+      ) as unknown as typeof fetch;
+
+    // Act
+    const decimals = await fetchKrakenPairDecimals(['SOMEUSD']);
+
+    // Assert — zero is a precision, unlike zero as a price
+    expect(decimals.get('SOMEUSD')).toBe(0);
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['empty', ''],
+    ['fractional', 1.5],
+    ['negative', -1],
+    // Intl throws a RangeError past 20, so this would crash the render.
+    ['absurd', 99],
+  ])(
+    'rejects a %s precision rather than formatting by guess',
+    async (_l, d) => {
+      // Arrange
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue(
+          envelope({ XXBTZUSD: { pair_decimals: d } }),
+        ) as unknown as typeof fetch;
+
+      // Act / Assert
+      await expect(fetchKrakenPairDecimals(['XXBTZUSD'])).rejects.toThrow(
+        /expected a (decimal count|number)/,
+      );
+    },
+  );
 });
 
 describe('fetchKrakenCandles', () => {
@@ -164,7 +291,7 @@ describe('fetchKrakenCandles', () => {
   it('keeps only the most recent candles for the timeframe', async () => {
     // Arrange — Kraken returns far more rows than a 24h chart needs
     const rows = Array.from({ length: 100 }, (_, i) =>
-      ohlcRow(1_700_000_000 + i * 3600, String(i)),
+      ohlcRow(1_700_000_000 + i * 3600, String(i + 1)),
     );
     global.fetch = jest
       .fn()
@@ -177,7 +304,7 @@ describe('fetchKrakenCandles', () => {
 
     // Assert — the tail, so the chart ends at "now"
     expect(candles).toHaveLength(24);
-    expect(candles[candles.length - 1].c).toBe(99);
+    expect(candles[candles.length - 1].c).toBe(100);
   });
 
   it('throws on an unknown pair, which Kraken reports with HTTP 200', async () => {
@@ -203,6 +330,82 @@ describe('fetchKrakenCandles', () => {
     // Act / Assert
     await expect(fetchKrakenCandles('SOLUSD', 30)).rejects.toThrow(
       'no candles',
+    );
+  });
+
+  it('rejects a candle field that is empty rather than reading it as zero', async () => {
+    // Arrange — an empty close, which Number() would call a $0 candle
+    const row = [
+      1_700_000_000,
+      '100.0',
+      '110.0',
+      '90.0',
+      '',
+      '100.0',
+      '1.0',
+      10,
+    ];
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        envelope({ XXBTZUSD: [row], last: 0 }),
+      ) as unknown as typeof fetch;
+
+    // Act / Assert
+    await expect(fetchKrakenCandles('XXBTZUSD', 30)).rejects.toThrow(
+      'expected a number',
+    );
+  });
+
+  it('rejects a candle whose body falls outside its own wick', async () => {
+    // Arrange — a low above the close: not a candle that could have traded
+    const row = [
+      1_700_000_000,
+      '100.0',
+      '110.0',
+      '99.0',
+      '95.0',
+      '100.0',
+      '1.0',
+      10,
+    ];
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        envelope({ XXBTZUSD: [row], last: 0 }),
+      ) as unknown as typeof fetch;
+
+    // Act / Assert — the geometry would draw this without complaint
+    await expect(fetchKrakenCandles('XXBTZUSD', 30)).rejects.toThrow(
+      'not self-consistent',
+    );
+  });
+
+  it('rejects a candle timestamped at the epoch', async () => {
+    // Arrange
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        envelope({ XXBTZUSD: [ohlcRow(0, '105.0')], last: 0 }),
+      ) as unknown as typeof fetch;
+
+    // Act / Assert — one 1970 row stretches the x-axis across half a century
+    await expect(fetchKrakenCandles('XXBTZUSD', 30)).rejects.toThrow(
+      'expected a timestamp',
+    );
+  });
+
+  it('rejects a row that is not a row', async () => {
+    // Arrange
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        envelope({ XXBTZUSD: ['not a candle'], last: 0 }),
+      ) as unknown as typeof fetch;
+
+    // Act / Assert
+    await expect(fetchKrakenCandles('XXBTZUSD', 30)).rejects.toThrow(
+      'expected a row',
     );
   });
 

@@ -47,12 +47,16 @@ export default async function CoinDetailPage({ params }: CoinDetailPageProps) {
         <span className={styles.symbol}>{coin.symbol.toUpperCase()}</span>
       </h1>
 
-      <CoinPriceHeader symbol={coin.symbol} />
+      <CoinPriceHeader
+        symbol={coin.symbol}
+        priceDecimals={coin.price_decimals}
+      />
 
       <CoinChart
         coinId={coin.id}
         symbol={coin.symbol}
         initialCandles={initialCandles}
+        priceDecimals={coin.price_decimals}
         initialDays={30}
       />
 

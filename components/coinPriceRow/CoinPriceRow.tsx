@@ -8,13 +8,18 @@ import styles from './CoinPriceRow.module.css';
 
 interface CoinPriceRowProps {
   symbol: string;
+  priceDecimals: number;
   // Server data, passed rather than stored: CoinGecko's 24h change is a
   // cross-exchange figure, and the socket's is Kraken's own. Keeping it out of
   // the store is what stops a tick quietly swapping one for the other.
   changePct: number | null;
 }
 
-export default function CoinPriceRow({ symbol, changePct }: CoinPriceRowProps) {
+export default function CoinPriceRow({
+  symbol,
+  priceDecimals,
+  changePct,
+}: CoinPriceRowProps) {
   const price = useAppSelector(selectPrice(symbol.toUpperCase()));
   const status = useAppSelector(selectEffectiveStatus(symbol.toUpperCase()));
   if (price == null) return <></>;
@@ -29,6 +34,7 @@ export default function CoinPriceRow({ symbol, changePct }: CoinPriceRowProps) {
           exactly like a current one otherwise. */}
       <AnimatedPrice
         value={price}
+        decimals={priceDecimals}
         className={`${styles.price} ${isPriceCurrent(status) ? '' : styles.priceStale}`}
       />
       <div className={styles.meta}>

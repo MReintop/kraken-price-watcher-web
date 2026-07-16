@@ -18,6 +18,7 @@ interface CoinChartProps {
   coinId: string;
   symbol: string;
   initialCandles: Candle[];
+  priceDecimals: number;
   initialDays?: number;
 }
 
@@ -25,6 +26,7 @@ export default function CoinChart({
   coinId,
   symbol,
   initialCandles,
+  priceDecimals,
   initialDays = 30,
 }: CoinChartProps) {
   // `days` is what the chart on screen actually shows; `pendingDays` is what was
@@ -105,6 +107,7 @@ export default function CoinChart({
             width={600}
             height={240}
             days={days}
+            priceDecimals={priceDecimals}
           />
         </div>
       )}

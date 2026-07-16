@@ -5,12 +5,8 @@ import type { Candle } from './candleChart';
 const KRAKEN_BASE =
   process.env.KRAKEN_BASE_URL ?? 'https://api.kraken.com/0/public';
 
-// Kraken answers a failed query with HTTP 200 and a populated `error` array, so
-// `response.ok` alone would let "Unknown asset pair" through as success.
-interface KrakenEnvelope<T> {
-  error: string[];
-  result: T;
-}
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
 
 async function krakenGet<T>(path: string, revalidate: number): Promise<T> {
   const response = await fetchWithRetry(`${KRAKEN_BASE}${path}`, {
@@ -19,26 +15,87 @@ async function krakenGet<T>(path: string, revalidate: number): Promise<T> {
   if (!response.ok) {
     throw new Error(`Kraken ${path}: HTTP ${response.status}`);
   }
-  const body = (await response.json()) as KrakenEnvelope<T>;
-  if (body.error?.length) {
+
+  // Valid JSON is not this API. A proxy's error page, a login redirect and a
+  // changed contract all parse, and only the shape tells them apart.
+  const body: unknown = await response.json();
+  if (!isRecord(body) || !Array.isArray(body.error) || !isRecord(body.result)) {
+    throw new Error(`Kraken ${path}: unrecognised response envelope`);
+  }
+  // Kraken answers a failed query with HTTP 200 and a populated `error` array,
+  // so `response.ok` alone would let "Unknown asset pair" through as success.
+  if (body.error.length) {
     throw new Error(`Kraken ${path}: ${body.error.join(', ')}`);
   }
-  return body.result;
+  return body.result as T;
 }
 
 // `c` is [last trade price, lot volume]. `o` is unused: it is *today's* open, so
 // a change from it measures however long today has been, not 24 hours.
 type TickerResult = Record<string, { c: [string, string] }>;
 
-// The response is JSON, not a promise about JSON: the types above describe what
-// Kraken says it sends, and nothing checks it at runtime. Number('') is 0 and
-// Number(undefined) is NaN, either of which would render as a real price.
-function toPrice(raw: unknown, context: string): number {
-  const value = Number(raw);
+// The wire type is checked before the conversion, never after: Number('') is 0,
+// and so are Number(null), Number(false) and Number([]). Every one of those
+// passes a finite check and renders as a real price of nothing.
+function toNumber(raw: unknown, context: string): number {
+  const value =
+    typeof raw === 'number'
+      ? raw
+      : typeof raw === 'string' && raw.trim() !== ''
+        ? Number(raw)
+        : NaN;
   if (!Number.isFinite(value)) {
     throw new Error(`Kraken ${context}: expected a number, got ${String(raw)}`);
   }
   return value;
+}
+
+// Zero is not a trade, and a negative one is not a price. Either would draw:
+// the chart would scale its whole domain to accommodate it.
+function toPrice(raw: unknown, context: string): number {
+  const value = toNumber(raw, context);
+  if (value <= 0) {
+    throw new Error(
+      `Kraken ${context}: expected a positive price, got ${value}`,
+    );
+  }
+  return value;
+}
+
+// `pair_decimals` is how many decimals a price on this market can have — the
+// market's own answer, where magnitude is only a guess about it.
+type AssetPairsResult = Record<string, { pair_decimals: number }>;
+
+// Intl throws a RangeError past 20 fraction digits, so a wrong answer here would
+// crash the render rather than misprint it.
+const MAX_DECIMALS = 20;
+
+function toDecimals(raw: unknown, context: string): number {
+  const value = toNumber(raw, context);
+  if (!Number.isInteger(value) || value < 0 || value > MAX_DECIMALS) {
+    throw new Error(
+      `Kraken ${context}: expected a decimal count, got ${value}`,
+    );
+  }
+  return value;
+}
+
+// Reference data, not market data: a pair's precision changes about never, so
+// this is cached far longer than a price and asked for once per build.
+export async function fetchKrakenPairDecimals(
+  pairs: readonly string[],
+): Promise<Map<string, number>> {
+  const result = await krakenGet<AssetPairsResult>(
+    `/AssetPairs?pair=${pairs.join(',')}`,
+    3600,
+  );
+
+  return new Map(
+    Object.entries(result).map(([pair, meta]) => [
+      pair,
+      toDecimals(meta?.pair_decimals, `${pair} pair_decimals`),
+    ]),
+  );
 }
 
 // One request for every pair. Kraken keys the response by its own canonical pair
@@ -57,6 +114,27 @@ export async function fetchKrakenPrices(
       toPrice(ticker?.c?.[0], `${pair} last`),
     ]),
   );
+}
+
+// Seconds since the epoch, and the chart's x-axis. A zero is 1970, and one row
+// carrying it stretches the domain across half a century of empty space.
+function toTimestamp(raw: unknown, context: string): number {
+  const seconds = toNumber(raw, context);
+  if (seconds <= 0) {
+    throw new Error(`Kraken ${context}: expected a timestamp, got ${seconds}`);
+  }
+  return seconds * 1000;
+}
+
+// Kraken's own invariant, and the geometry's: a body drawn outside its wick is
+// not a candle. `l <= h` follows from both checks and is not tested for.
+function assertConsistent(candle: Candle, context: string) {
+  const { o, h, l, c } = candle;
+  if (l > Math.min(o, c) || h < Math.max(o, c)) {
+    throw new Error(
+      `Kraken ${context}: candle is not self-consistent (o ${o} h ${h} l ${l} c ${c})`,
+    );
+  }
 }
 
 type OhlcRow = [number, string, string, string, string, string, string, number];
@@ -81,11 +159,21 @@ export async function fetchKrakenCandles(
   // Rows are [time, open, high, low, close, vwap, volume, count]: prices arrive
   // as strings, and the timestamp is in seconds. A NaN here reaches SVG geometry
   // and draws nothing, silently, so it stops here instead.
-  return rows.slice(-points).map(([time, open, high, low, close]) => ({
-    t: toPrice(time, `${pair} time`) * 1000,
-    o: toPrice(open, `${pair} open`),
-    h: toPrice(high, `${pair} high`),
-    l: toPrice(low, `${pair} low`),
-    c: toPrice(close, `${pair} close`),
-  }));
+  return rows.slice(-points).map((row) => {
+    if (!Array.isArray(row)) {
+      throw new Error(
+        `Kraken OHLC ${pair}: expected a row, got ${String(row)}`,
+      );
+    }
+    const [time, open, high, low, close] = row;
+    const candle: Candle = {
+      t: toTimestamp(time, `${pair} time`),
+      o: toPrice(open, `${pair} open`),
+      h: toPrice(high, `${pair} high`),
+      l: toPrice(low, `${pair} low`),
+      c: toPrice(close, `${pair} close`),
+    };
+    assertConsistent(candle, `OHLC ${pair}`);
+    return candle;
+  });
 }

@@ -1,15 +1,21 @@
 import { getCoin, getCoins, getCoinCandles } from './coins';
-import { fetchKrakenPrices, fetchKrakenCandles } from './kraken';
+import {
+  fetchKrakenPrices,
+  fetchKrakenCandles,
+  fetchKrakenPairDecimals,
+} from './kraken';
 
 // Kraken has its own suite; stubbed here so these tests are about how the two
 // sources are merged.
 jest.mock('./kraken', () => ({
   fetchKrakenPrices: jest.fn(),
   fetchKrakenCandles: jest.fn(),
+  fetchKrakenPairDecimals: jest.fn(),
 }));
 
 const mockPrices = fetchKrakenPrices as jest.Mock;
 const mockCandles = fetchKrakenCandles as jest.Mock;
+const mockDecimals = fetchKrakenPairDecimals as jest.Mock;
 
 const metadata = () => [
   {
@@ -38,6 +44,13 @@ const priced = () =>
     ['XETHZUSD', 1881],
   ]);
 
+// Kraken quotes BTC/USD to a tenth of a dollar and ETH/USD to a cent.
+const precision = () =>
+  new Map([
+    ['XXBTZUSD', 1],
+    ['XETHZUSD', 2],
+  ]);
+
 beforeEach(() => {
   global.fetch = jest.fn().mockResolvedValue({
     ok: true,
@@ -46,6 +59,7 @@ beforeEach(() => {
     json: async () => metadata(),
   }) as unknown as typeof fetch;
   mockPrices.mockResolvedValue(priced());
+  mockDecimals.mockResolvedValue(precision());
 });
 
 afterEach(() => jest.resetAllMocks());
@@ -164,6 +178,25 @@ describe('getCoins', () => {
     const coins = await getCoins();
 
     // Assert
+    expect(coins.map((coin) => coin.id)).toEqual(['bitcoin']);
+  });
+
+  it('takes the price precision from Kraken, per pair', async () => {
+    // Arrange / Act — BTC/USD trades to a tenth of a dollar, ETH/USD to a cent
+    const coins = await getCoins();
+
+    // Assert — a fact about the market, carried beside the price
+    expect(coins.map((coin) => coin.price_decimals)).toEqual([1, 2]);
+  });
+
+  it('drops a coin Kraken quotes no precision for, rather than guessing one', async () => {
+    // Arrange — only bitcoin has reference data
+    mockDecimals.mockResolvedValue(new Map([['XXBTZUSD', 1]]));
+
+    // Act
+    const coins = await getCoins();
+
+    // Assert — a price with no precision cannot be rendered honestly
     expect(coins.map((coin) => coin.id)).toEqual(['bitcoin']);
   });
 

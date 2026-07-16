@@ -1,5 +1,9 @@
 import { fetchWithRetry } from './http';
-import { fetchKrakenPrices, fetchKrakenCandles } from './kraken';
+import {
+  fetchKrakenPrices,
+  fetchKrakenCandles,
+  fetchKrakenPairDecimals,
+} from './kraken';
 import type { Candle } from './candleChart';
 
 export type Coin = {
@@ -8,6 +12,10 @@ export type Coin = {
   symbol: string;
   image: string;
   current_price: number;
+  // Kraken's own precision for this market, carried beside the price rather than
+  // derived from it: how many decimals a price *can* have is a fact about the
+  // pair, and no amount of looking at one number reveals it.
+  price_decimals: number;
   // Nullable because CoinGecko's is: it reports null on markets too thin to
   // measure. A row without a percentage is honest; a row inventing 0.00% is not.
   price_change_percentage_24h: number | null;
@@ -102,16 +110,21 @@ async function fetchCoinMetadata(): Promise<CoinMetadata[]> {
 // Price from Kraken, the same source as the socket and the candles. The change
 // stays CoinGecko's and the socket never touches it: same window, other market.
 export async function getCoins(): Promise<Coin[]> {
-  const [metadata, prices] = await Promise.all([
+  const pairs = TRACKED_COINS.map((coin) => coin.pair);
+  const [metadata, prices, decimals] = await Promise.all([
     fetchCoinMetadata(),
-    fetchKrakenPrices(TRACKED_COINS.map((coin) => coin.pair)),
+    fetchKrakenPrices(pairs),
+    fetchKrakenPairDecimals(pairs),
   ]);
 
   return TRACKED_COINS.flatMap(({ id, pair }) => {
     const coin = metadata.find((entry) => entry.id === id);
     const last = prices.get(pair);
-    if (!coin || last == null) return [];
-    return [{ ...coin, current_price: last }];
+    const places = decimals.get(pair);
+    // A price with no precision to render it at cannot be shown honestly, so it
+    // is dropped like a missing one rather than guessed at.
+    if (!coin || last == null || places == null) return [];
+    return [{ ...coin, current_price: last, price_decimals: places }];
   });
 }
 

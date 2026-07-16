@@ -14,7 +14,13 @@ const makeCandle = (overrides: Partial<Candle> = {}): Candle => ({
 // Arrange helper: render the chart and hand back its <svg>.
 const renderChart = (candles: Candle[], days = 30) => {
   const { container } = render(
-    <CandlestickChart candles={candles} width={600} height={240} days={days} />,
+    <CandlestickChart
+      candles={candles}
+      width={600}
+      height={240}
+      days={days}
+      priceDecimals={2}
+    />,
   );
   return container.querySelector('svg')!;
 };

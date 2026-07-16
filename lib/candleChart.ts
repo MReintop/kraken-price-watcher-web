@@ -23,7 +23,11 @@ export function periodChangePct(candles: Candle[]): number | null {
 
 // The shape gives a sighted reader range and trend; "candlestick chart" gives a
 // screen reader nothing. In words, not arrows — "▼" announces as nothing.
-export function describeCandles(candles: Candle[], days: number): string {
+export function describeCandles(
+  candles: Candle[],
+  days: number,
+  decimals: number,
+): string {
   if (candles.length === 0) return `${days}-day candlestick chart, no data`;
 
   const { min, max } = priceDomain(candles);
@@ -33,7 +37,7 @@ export function describeCandles(candles: Candle[], days: number): string {
       ? ''
       : ` ${change >= 0 ? 'Up' : 'Down'} ${Math.abs(change).toFixed(2)}% over the period.`;
 
-  return `${days}-day candlestick chart, ${candles.length} candles. Low ${formatPrice(min)}, high ${formatPrice(max)}.${trend}`;
+  return `${days}-day candlestick chart, ${candles.length} candles. Low ${formatPrice(min, decimals)}, high ${formatPrice(max, decimals)}.${trend}`;
 }
 
 export interface PriceDomain {

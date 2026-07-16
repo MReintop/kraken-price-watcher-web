@@ -19,10 +19,10 @@ const renderTwoRows = () => {
   render(
     <Provider store={store}>
       <Profiler id="BTC" onRender={() => (renders.BTC += 1)}>
-        <CoinPriceRow symbol="btc" changePct={1} />
+        <CoinPriceRow priceDecimals={2} symbol="btc" changePct={1} />
       </Profiler>
       <Profiler id="ETH" onRender={() => (renders.ETH += 1)}>
-        <CoinPriceRow symbol="eth" changePct={1} />
+        <CoinPriceRow priceDecimals={2} symbol="eth" changePct={1} />
       </Profiler>
     </Provider>,
   );

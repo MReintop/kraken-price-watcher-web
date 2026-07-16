@@ -9,9 +9,13 @@ import styles from './CoinPriceHeader.module.css';
 
 interface CoinPriceHeaderProps {
   symbol: string;
+  priceDecimals: number;
 }
 
-export default function CoinPriceHeader({ symbol }: CoinPriceHeaderProps) {
+export default function CoinPriceHeader({
+  symbol,
+  priceDecimals,
+}: CoinPriceHeaderProps) {
   const price = useAppSelector(selectPrice(symbol.toUpperCase()));
   const status = useAppSelector(selectEffectiveStatus(symbol.toUpperCase()));
   if (price == null) return null;
@@ -20,7 +24,11 @@ export default function CoinPriceHeader({ symbol }: CoinPriceHeaderProps) {
     <div className={styles.wrap}>
       <div className={styles.priceRow}>
         <span className={styles.tickSlot} />
-        <AnimatedPrice value={price} className={styles.price} />
+        <AnimatedPrice
+          value={price}
+          decimals={priceDecimals}
+          className={styles.price}
+        />
         <span className={styles.tickSlot}>
           <PriceTickIndicator price={price} />
         </span>
