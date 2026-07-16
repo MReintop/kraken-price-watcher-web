@@ -6,13 +6,16 @@ import { createServer } from 'node:http';
 const PORT = Number(process.env.STUB_PORT ?? 4001);
 
 // `price` is Kraken's; `change24h` is CoinGecko's rolling-24h figure, which is
-// the only 24h window either upstream actually reports.
+// the only 24h window either upstream actually reports. `decimals` is the pair's
+// price precision, as /AssetPairs reports it — BTC/USD really does trade to a
+// tenth of a dollar, which is why 62888 must render as $62,888.0 and not $62,888.
 const COINS = [
   {
     id: 'bitcoin',
     name: 'Bitcoin',
     symbol: 'btc',
     pair: 'XXBTZUSD',
+    decimals: 1,
     price: 62888,
     change24h: -1.45,
   },
@@ -21,6 +24,7 @@ const COINS = [
     name: 'Ethereum',
     symbol: 'eth',
     pair: 'XETHZUSD',
+    decimals: 2,
     price: 1883.21,
     change24h: 2.5,
   },
@@ -29,6 +33,7 @@ const COINS = [
     name: 'Solana',
     symbol: 'sol',
     pair: 'SOLUSD',
+    decimals: 2,
     price: 142.5,
     change24h: 5.1,
   },
@@ -37,6 +42,7 @@ const COINS = [
     name: 'Cardano',
     symbol: 'ada',
     pair: 'ADAUSD',
+    decimals: 6,
     price: 0.38,
     change24h: -0.75,
   },
@@ -45,6 +51,7 @@ const COINS = [
     name: 'XRP',
     symbol: 'xrp',
     pair: 'XXRPZUSD',
+    decimals: 5,
     price: 0.52,
     change24h: 1.2,
   },
@@ -53,6 +60,7 @@ const COINS = [
     name: 'Dogecoin',
     symbol: 'doge',
     pair: 'XDGUSD',
+    decimals: 7,
     price: 0.12,
     change24h: -3.4,
   },
@@ -61,6 +69,7 @@ const COINS = [
     name: 'Polkadot',
     symbol: 'dot',
     pair: 'DOTUSD',
+    decimals: 4,
     price: 4.15,
     change24h: 0.9,
   },
@@ -69,6 +78,7 @@ const COINS = [
     name: 'Chainlink',
     symbol: 'link',
     pair: 'LINKUSD',
+    decimals: 5,
     price: 11.3,
     change24h: 4.2,
   },
@@ -148,6 +158,21 @@ export function createStubServer() {
     const krakenError = (message) => json({ error: [message], result: {} });
 
     if (url.pathname === '/coingecko/coins/markets') return json(markets());
+
+    if (url.pathname === '/kraken/AssetPairs') {
+      const pair = url.searchParams.get('pair');
+      if (!pair) return krakenError('EGeneral:Invalid arguments');
+      const wanted = new Set(pair.split(','));
+      return json({
+        error: [],
+        result: Object.fromEntries(
+          COINS.filter((coin) => wanted.has(coin.pair)).map((coin) => [
+            coin.pair,
+            { altname: coin.pair, pair_decimals: coin.decimals },
+          ]),
+        ),
+      });
+    }
 
     if (url.pathname === '/kraken/Ticker') {
       const pair = url.searchParams.get('pair');

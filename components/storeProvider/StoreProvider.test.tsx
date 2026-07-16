@@ -13,6 +13,7 @@ const makeCoin = (overrides: Partial<Coin> = {}): Coin => ({
   name: 'Bitcoin',
   symbol: 'btc',
   image: '',
+  price_decimals: 2,
   current_price: 62888,
   price_change_percentage_24h: -1.45,
   market_cap: 0,
@@ -28,12 +29,12 @@ describe('StoreProvider', () => {
     // Act
     render(
       <StoreProvider initialCoins={coins}>
-        <CoinPriceRow symbol="btc" changePct={1} />
+        <CoinPriceRow priceDecimals={1} symbol="btc" changePct={1} />
       </StoreProvider>,
     );
 
     // Assert — no spinner, no client round-trip: the value is there on render 1
-    expect(screen.getByText('$62,888')).toBeInTheDocument();
+    expect(screen.getByText('$62,888.0')).toBeInTheDocument();
   });
 
   it("upper-cases seeded symbols to match the socket's, so a lower-case id still resolves", () => {
@@ -43,12 +44,12 @@ describe('StoreProvider', () => {
     // Act
     render(
       <StoreProvider initialCoins={coins}>
-        <CoinPriceRow symbol="BTC" changePct={1} />
+        <CoinPriceRow priceDecimals={1} symbol="BTC" changePct={1} />
       </StoreProvider>,
     );
 
     // Assert — a casing mismatch here would silently render nothing
-    expect(screen.getByText('$62,888')).toBeInTheDocument();
+    expect(screen.getByText('$62,888.0')).toBeInTheDocument();
   });
 
   it('seeds every coin it is given', () => {
@@ -61,7 +62,7 @@ describe('StoreProvider', () => {
     // Act
     render(
       <StoreProvider initialCoins={coins}>
-        <CoinPriceRow symbol="eth" changePct={1} />
+        <CoinPriceRow priceDecimals={2} symbol="eth" changePct={1} />
       </StoreProvider>,
     );
 
@@ -73,7 +74,7 @@ describe('StoreProvider', () => {
     // Arrange / Act
     const { container } = render(
       <StoreProvider initialCoins={[]}>
-        <CoinPriceRow symbol="btc" changePct={1} />
+        <CoinPriceRow priceDecimals={1} symbol="btc" changePct={1} />
       </StoreProvider>,
     );
 

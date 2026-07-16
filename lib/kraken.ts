@@ -62,6 +62,42 @@ function toPrice(raw: unknown, context: string): number {
   return value;
 }
 
+// `pair_decimals` is how many decimals a price on this market can have — the
+// market's own answer, where magnitude is only a guess about it.
+type AssetPairsResult = Record<string, { pair_decimals: number }>;
+
+// Intl throws a RangeError past 20 fraction digits, so a wrong answer here would
+// crash the render rather than misprint it.
+const MAX_DECIMALS = 20;
+
+function toDecimals(raw: unknown, context: string): number {
+  const value = toNumber(raw, context);
+  if (!Number.isInteger(value) || value < 0 || value > MAX_DECIMALS) {
+    throw new Error(
+      `Kraken ${context}: expected a decimal count, got ${value}`,
+    );
+  }
+  return value;
+}
+
+// Reference data, not market data: a pair's precision changes about never, so
+// this is cached far longer than a price and asked for once per build.
+export async function fetchKrakenPairDecimals(
+  pairs: readonly string[],
+): Promise<Map<string, number>> {
+  const result = await krakenGet<AssetPairsResult>(
+    `/AssetPairs?pair=${pairs.join(',')}`,
+    3600,
+  );
+
+  return new Map(
+    Object.entries(result).map(([pair, meta]) => [
+      pair,
+      toDecimals(meta?.pair_decimals, `${pair} pair_decimals`),
+    ]),
+  );
+}
+
 // One request for every pair. Kraken keys the response by its own canonical pair
 // name and not in the order asked, so callers must look up by name.
 export async function fetchKrakenPrices(

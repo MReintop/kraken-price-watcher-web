@@ -6,6 +6,7 @@ import styles from './AnimatedPrice.module.css';
 
 interface AnimatedPriceProps {
   value: number;
+  decimals: number;
   className?: string;
 }
 
@@ -13,6 +14,7 @@ interface AnimatedPriceProps {
 // one paid. The flash carries the direction — a cue can lie about nothing.
 export default function AnimatedPrice({
   value,
+  decimals,
   className,
 }: AnimatedPriceProps) {
   const [previous, setPrevious] = useState(value);
@@ -34,7 +36,7 @@ export default function AnimatedPrice({
       className={`${className ?? ''} ${flash}`.trim()}
       onAnimationEnd={() => setDirection(null)}
     >
-      {formatPrice(value)}
+      {formatPrice(value, decimals)}
     </span>
   );
 }

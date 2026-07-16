@@ -161,6 +161,6 @@ test.describe('under a non-en-US locale', () => {
     // Assert — on the runtime locale this hydrates to "$62.888,00", replacing
     // the text the server sent. Console errors cannot see it: a production
     // React patches a text mismatch silently.
-    await expect(page.getByText('$62,888')).toBeVisible();
+    await expect(page.getByText('$62,888.0', { exact: true })).toBeVisible();
   });
 });

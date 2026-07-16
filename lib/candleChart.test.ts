@@ -94,7 +94,7 @@ describe('describeCandles', () => {
     ];
 
     // Act
-    const result = describeCandles(candles, 30);
+    const result = describeCandles(candles, 30, 2);
 
     // Assert — a screen reader gets what the shape shows a sighted reader
     expect(result).toBe(
@@ -107,7 +107,7 @@ describe('describeCandles', () => {
     const candles = [makeCandle({ o: 100 }), makeCandle({ c: 80 })];
 
     // Act
-    const result = describeCandles(candles, 1);
+    const result = describeCandles(candles, 1, 2);
 
     // Assert — "▼" is announced as nothing useful
     expect(result).toContain('Down 20.00% over the period.');
@@ -115,7 +115,7 @@ describe('describeCandles', () => {
 
   it('does not claim a range it has no data for', () => {
     // Arrange / Act
-    const result = describeCandles([], 365);
+    const result = describeCandles([], 365, 2);
 
     // Assert
     expect(result).toBe('365-day candlestick chart, no data');

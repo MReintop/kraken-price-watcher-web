@@ -1,51 +1,61 @@
 import { formatPrice, formatSignedPct } from './format';
 
 describe('formatPrice', () => {
-  it('groups thousands and shows cents for a mid-range price', () => {
+  // The headline case, and the one magnitude gets wrong: Kraken quotes BTC/USD
+  // to a tenth of a dollar, so this is a trade that really happened.
+  it('renders a price at the precision its market trades in', () => {
     // Arrange / Act
-    const result = formatPrice(1234.5);
+    const result = formatPrice(62888.4, 1);
+
+    // Assert — the trade, not a rounder number near it
+    expect(result).toBe('$62,888.4');
+  });
+
+  it('pads a round trade out to the market precision', () => {
+    // Arrange / Act — a trade that landed on a whole dollar
+    const result = formatPrice(62888, 1);
+
+    // Assert — a tenth-of-a-dollar market has a tenths column, occupied or not
+    expect(result).toBe('$62,888.0');
+  });
+
+  it('groups thousands and shows cents for a two-decimal market', () => {
+    // Arrange / Act
+    const result = formatPrice(1234.5, 2);
 
     // Assert
     expect(result).toBe('$1,234.50');
   });
 
-  it('pads a whole number to two decimals', () => {
-    // Arrange / Act
-    const result = formatPrice(10);
-
-    // Assert
-    expect(result).toBe('$10.00');
-  });
-
   // At two decimals a real tick on a sub-$1 asset moves nothing on screen.
   it('keeps enough precision for a sub-$1 asset to visibly tick', () => {
     // Arrange / Act — a ~2% dogecoin move
-    const before = formatPrice(0.0712);
-    const after = formatPrice(0.0698);
+    const before = formatPrice(0.0712, 4);
+    const after = formatPrice(0.0698, 4);
 
     // Assert
     expect(before).toBe('$0.0712');
     expect(after).not.toBe(before);
   });
 
-  it('drops cents once they are noise', () => {
+  it('renders a market that trades in whole units without a decimal point', () => {
     // Arrange / Act
-    const result = formatPrice(62888);
+    const result = formatPrice(62888, 0);
 
     // Assert
     expect(result).toBe('$62,888');
   });
 
-  // Decimals follow magnitude, not the value: a tween crossing 9,999.99 -> 10,000
-  // would otherwise drop two decimals mid-animation.
-  it('does not change decimals for values of the same magnitude', () => {
-    // Arrange / Act
-    const low = formatPrice(1000.5);
-    const high = formatPrice(9999.99);
+  // The size of the number is not evidence about the market it traded on, and
+  // deciding by magnitude is what rounded a real 62,888.4 down to 62,888.
+  it('lets the market decide the decimals, never the size of the value', () => {
+    // Arrange / Act — same market, either side of the magnitude threshold
+    const below = formatPrice(9999.99, 2);
+    const above = formatPrice(10_000.5, 2);
 
-    // Assert — both two decimals
-    expect(low).toBe('$1,000.50');
-    expect(high).toBe('$9,999.99');
+    // Assert — the larger price keeps its cents
+    expect(below).toBe('$9,999.99');
+    expect(above).toBe('$10,000.50');
   });
 
   // The exact-output tests above pass on an en-US runner whether the locale is
@@ -56,7 +66,7 @@ describe('formatPrice', () => {
     const toLocaleString = jest.spyOn(Number.prototype, 'toLocaleString');
 
     // Act
-    formatPrice(1234.5);
+    formatPrice(1234.5, 2);
 
     // Assert
     expect(toLocaleString).toHaveBeenCalledWith('en-US', expect.anything());
