@@ -1,4 +1,8 @@
-import { fetchKrakenPrices, fetchKrakenCandles } from './kraken';
+import {
+  fetchKrakenPrices,
+  fetchKrakenCandles,
+  fetchKrakenPairDecimals,
+} from './kraken';
 
 const envelope = (result: unknown, error: string[] = []) => ({
   ok: true,
@@ -161,6 +165,64 @@ describe('fetchKrakenPrices', () => {
       'Unknown asset pair',
     );
   });
+});
+
+describe('fetchKrakenPairDecimals', () => {
+  it('reads the price precision each market publishes', async () => {
+    // Arrange — Kraken quotes BTC/USD to a tenth of a dollar
+    global.fetch = jest.fn().mockResolvedValue(
+      envelope({
+        XXBTZUSD: { altname: 'XBTUSD', pair_decimals: 1 },
+        SOLUSD: { altname: 'SOLUSD', pair_decimals: 2 },
+      }),
+    ) as unknown as typeof fetch;
+
+    // Act
+    const decimals = await fetchKrakenPairDecimals(['XXBTZUSD', 'SOLUSD']);
+
+    // Assert
+    expect(decimals.get('XXBTZUSD')).toBe(1);
+    expect(decimals.get('SOLUSD')).toBe(2);
+  });
+
+  it('accepts a market that trades in whole units', async () => {
+    // Arrange
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue(
+        envelope({ SOMEUSD: { pair_decimals: 0 } }),
+      ) as unknown as typeof fetch;
+
+    // Act
+    const decimals = await fetchKrakenPairDecimals(['SOMEUSD']);
+
+    // Assert — zero is a precision, unlike zero as a price
+    expect(decimals.get('SOMEUSD')).toBe(0);
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['empty', ''],
+    ['fractional', 1.5],
+    ['negative', -1],
+    // Intl throws a RangeError past 20, so this would crash the render.
+    ['absurd', 99],
+  ])(
+    'rejects a %s precision rather than formatting by guess',
+    async (_l, d) => {
+      // Arrange
+      global.fetch = jest
+        .fn()
+        .mockResolvedValue(
+          envelope({ XXBTZUSD: { pair_decimals: d } }),
+        ) as unknown as typeof fetch;
+
+      // Act / Assert
+      await expect(fetchKrakenPairDecimals(['XXBTZUSD'])).rejects.toThrow(
+        /expected a (decimal count|number)/,
+      );
+    },
+  );
 });
 
 describe('fetchKrakenCandles', () => {

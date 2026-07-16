@@ -33,6 +33,7 @@ export default async function Markets() {
                 socket has no business replacing it with Kraken's. */}
             <CoinPriceRow
               symbol={coin.symbol}
+              priceDecimals={coin.price_decimals}
               changePct={coin.price_change_percentage_24h}
             />
           </Link>

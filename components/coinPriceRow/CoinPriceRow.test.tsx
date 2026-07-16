@@ -16,7 +16,7 @@ const renderWithStore = (
   });
   render(
     <Provider store={store}>
-      <CoinPriceRow symbol="btc" changePct={changePct} />
+      <CoinPriceRow priceDecimals={2} symbol="btc" changePct={changePct} />
     </Provider>,
   );
   return store;
@@ -72,7 +72,7 @@ describe('CoinPriceRow', () => {
     // Act
     const { container } = render(
       <Provider store={store}>
-        <CoinPriceRow symbol="btc" changePct={1} />
+        <CoinPriceRow priceDecimals={2} symbol="btc" changePct={1} />
       </Provider>,
     );
 

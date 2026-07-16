@@ -39,7 +39,12 @@ const renderChart = ({
   });
   const view = render(
     <Provider store={store}>
-      <CoinChart coinId="bitcoin" symbol="btc" initialCandles={candles} />
+      <CoinChart
+        priceDecimals={2}
+        coinId="bitcoin"
+        symbol="btc"
+        initialCandles={candles}
+      />
     </Provider>,
   );
   return { store, ...view };

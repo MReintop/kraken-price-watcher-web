@@ -32,8 +32,10 @@ test.describe('Markets (server-rendered)', () => {
     // Act
     await page.goto('/');
 
-    // Assert — proves the RSC path, not a client-side fetch, produced this
-    await expect(page.getByText('$62,888')).toBeVisible();
+    // Assert — proves the RSC path, not a client-side fetch, produced this.
+    // Exact, because '$62,888' is a substring of the correct answer: BTC/USD
+    // trades to a tenth of a dollar, so the tenths column must reach the HTML.
+    await expect(page.getByText('$62,888.0', { exact: true })).toBeVisible();
     await context.close();
   });
 });

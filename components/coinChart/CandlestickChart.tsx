@@ -21,6 +21,7 @@ interface CandlestickChartProps {
   width: number;
   height: number;
   days: number;
+  priceDecimals: number;
 }
 
 export default function CandlestickChart({
@@ -28,6 +29,7 @@ export default function CandlestickChart({
   width,
   height,
   days,
+  priceDecimals,
 }: CandlestickChartProps) {
   const plotWidth = Math.max(width - RIGHT_AXIS, 0);
   const plotHeight = Math.max(height - BOTTOM_AXIS, 0);
@@ -48,7 +50,7 @@ export default function CandlestickChart({
       className={styles.svg}
       viewBox={`0 0 ${width} ${height}`}
       role="img"
-      aria-label={describeCandles(candles, days)}
+      aria-label={describeCandles(candles, days, priceDecimals)}
     >
       {/* Y gridlines + price labels (right axis) */}
       {ticks.map((t, i) => {

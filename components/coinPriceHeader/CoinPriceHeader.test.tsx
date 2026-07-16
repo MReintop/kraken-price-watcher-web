@@ -16,7 +16,7 @@ const renderWithStore = (
   const store = makeStore({ prices: { bySymbol, status, unavailable: [] } });
   render(
     <Provider store={store}>
-      <CoinPriceHeader symbol="btc" />
+      <CoinPriceHeader priceDecimals={1} symbol="btc" />
     </Provider>,
   );
   return store;
@@ -28,7 +28,7 @@ describe('CoinPriceHeader', () => {
     renderWithStore({ BTC: 62888 });
 
     // Assert
-    expect(screen.getByText('$62,888')).toBeInTheDocument();
+    expect(screen.getByText('$62,888.0')).toBeInTheDocument();
   });
 
   it('reads as connecting until the socket reports itself live', () => {
@@ -95,7 +95,7 @@ describe('CoinPriceHeader', () => {
     // Act
     render(
       <Provider store={store}>
-        <CoinPriceHeader symbol="btc" />
+        <CoinPriceHeader priceDecimals={1} symbol="btc" />
       </Provider>,
     );
 
@@ -117,7 +117,7 @@ describe('CoinPriceHeader', () => {
     // Act
     render(
       <Provider store={store}>
-        <CoinPriceHeader symbol="btc" />
+        <CoinPriceHeader priceDecimals={1} symbol="btc" />
       </Provider>,
     );
 
@@ -135,7 +135,7 @@ describe('CoinPriceHeader', () => {
     });
 
     // Assert
-    expect(screen.getByText('$63,000')).toBeInTheDocument();
+    expect(screen.getByText('$63,000.0')).toBeInTheDocument();
   });
 
   it('ignores a tick for a different symbol', () => {
@@ -148,7 +148,7 @@ describe('CoinPriceHeader', () => {
     });
 
     // Assert
-    expect(screen.getByText('$62,888')).toBeInTheDocument();
+    expect(screen.getByText('$62,888.0')).toBeInTheDocument();
   });
 
   it('renders nothing when its symbol is absent from the store', () => {
@@ -160,7 +160,7 @@ describe('CoinPriceHeader', () => {
     // Act
     const { container } = render(
       <Provider store={store}>
-        <CoinPriceHeader symbol="btc" />
+        <CoinPriceHeader priceDecimals={1} symbol="btc" />
       </Provider>,
     );
 
