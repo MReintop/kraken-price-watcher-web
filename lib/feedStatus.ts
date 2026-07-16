@@ -12,8 +12,8 @@ export const STATUS_LABEL: Record<EffectiveStatus, string> = {
 };
 
 // Whether the number on screen is still the one Kraken last sent. `connecting`
-// counts: that price is the server's own seed, current until the socket says
-// otherwise. `stale` and `offline` do not — the feed is gone and the number is
-// only the last one that arrived.
+// counts, and only because the socket never returns to it: it means no feed has
+// arrived yet, so the price is the server's own fresh seed. A reconnect stays
+// `offline` precisely so a dead socket's last price cannot pass through here.
 export const isPriceCurrent = (status: EffectiveStatus) =>
   status === 'live' || status === 'connecting';

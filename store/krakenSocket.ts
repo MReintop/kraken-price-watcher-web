@@ -50,6 +50,10 @@ interface Connection {
   staleTimer: ReturnType<typeof setTimeout> | null;
   handshakeTimer: ReturnType<typeof setTimeout> | null;
   connectTimer: ReturnType<typeof setTimeout> | null;
+  // Both, before this connection may call itself live: an acknowledgement proves
+  // Kraken took the subscription, never that it has sent anything for it.
+  settled: boolean;
+  seenTicker: boolean;
 }
 
 // "BTC/USD" -> "BTC", the form the store is keyed by.
@@ -88,6 +92,12 @@ export function startKrakenTicker(
     if (buffer.size === 0) return;
     dispatch(tickersApplied(Array.from(buffer.values())));
     buffer.clear();
+  };
+
+  // A subscription Kraken accepted and never sends for would otherwise sit at
+  // "Live" over a price from before the drop, forever.
+  const promote = (conn: Connection) => {
+    if (conn.settled && conn.seenTicker) setStatus('live');
   };
 
   const stopTimer = (timer: ReturnType<typeof setTimeout> | null) => {
@@ -136,6 +146,8 @@ export function startKrakenTicker(
       staleTimer: null,
       handshakeTimer: null,
       connectTimer: null,
+      settled: false,
+      seenTicker: false,
     };
 
     // Retired here rather than on its close event: nothing guarantees that event
@@ -147,7 +159,11 @@ export function startKrakenTicker(
       previous.socket.close();
     }
 
-    setStatus('connecting');
+    // Deliberately not set back to `connecting`: that status is the initial one
+    // and means no feed has ever arrived, so the price on screen is the server's
+    // own seed and current. A reconnect stays `offline` until a fresh ticker,
+    // because by then the price is the dead socket's last, and saying
+    // "connecting" over it would present it as current again.
     conn.connectTimer = setTimeout(() => socket.close(), CONNECT_TIMEOUT_MS);
     // The last connection's answer is not this one's, and a total refusal closes
     // without settling — so its verdict would otherwise outlive it.
@@ -170,8 +186,9 @@ export function startKrakenTicker(
       }
 
       backoff = 1000; // at least one symbol is genuinely subscribed
+      conn.settled = true;
       dispatch(subscriptionsSettled([...refused].map(baseOf)));
-      setStatus('live');
+      promote(conn);
     };
 
     socket.onopen = () => {
@@ -220,7 +237,8 @@ export function startKrakenTicker(
       }
 
       if (msg.channel !== 'ticker' || !Array.isArray(msg.data)) return;
-      setStatus('live'); // a frame after silence un-stales
+      conn.seenTicker = true;
+      promote(conn); // also what un-stales a feed that went quiet
       for (const t of msg.data) {
         // Checked, not trusted — it is JSON off a socket. A NaN draws nothing,
         // and an unsubscribed symbol has no row to reach.

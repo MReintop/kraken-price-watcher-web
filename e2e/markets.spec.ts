@@ -35,6 +35,14 @@ test.describe('Markets (feed state)', () => {
             }),
           );
         }
+        // An accepted symbol sends: the feed is live only once one has, and a
+        // healthy feed is the premise of this test.
+        ws.send(
+          JSON.stringify({
+            channel: 'ticker',
+            data: [{ symbol: 'BTC/USD', last: 62888 }],
+          }),
+        );
       });
     });
 

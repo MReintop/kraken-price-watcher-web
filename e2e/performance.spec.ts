@@ -69,7 +69,10 @@ const tickFrame = (symbol: string, last: number) =>
     data: [{ symbol, last, change_pct: 1.5 }],
   });
 
-// Arrange helper: mock the socket and hand back a sender.
+// Arrange helper: mock the socket, hand back a sender, and wait for a live feed.
+// A first price is what makes it live — an acknowledgement only promises one —
+// so sending one doubles as the gate that the socket is attached before a test
+// starts pushing. Sent at the seeded price, so it moves nothing on screen.
 async function openWithMockedSocket(page: Page) {
   let resolveSocket: (route: WebSocketRoute) => void;
   const connected = new Promise<WebSocketRoute>((resolve) => {
@@ -84,14 +87,16 @@ async function openWithMockedSocket(page: Page) {
   });
 
   await page.goto('/coins/bitcoin');
-  return connected;
+  const socket = await connected;
+  socket.send(tickFrame('BTC/USD', 62888));
+  await expect(page.getByText('Live')).toBeVisible();
+  return socket;
 }
 
 test.describe('under a burst of ticks', () => {
   test('settles on the last price it was sent', async ({ page }) => {
     // Arrange
     const socket = await openWithMockedSocket(page);
-    await expect(page.getByText('Live')).toBeVisible(); // readiness gate
 
     // Act — coalescing may drop intermediate ticks, but never the newest
     for (let i = 0; i < 200; i++) socket.send(tickFrame('BTC/USD', 70000 + i));
@@ -103,7 +108,6 @@ test.describe('under a burst of ticks', () => {
   test('stays interactive while ticks are arriving', async ({ page }) => {
     // Arrange
     const socket = await openWithMockedSocket(page);
-    await expect(page.getByText('Live')).toBeVisible(); // readiness gate
     const flooding = setInterval(
       () => socket.send(tickFrame('BTC/USD', 60000 + Math.random() * 1000)),
       5,
@@ -126,7 +130,6 @@ test.describe('under a burst of ticks', () => {
   }) => {
     // Arrange
     const socket = await openWithMockedSocket(page);
-    await expect(page.getByText('Live')).toBeVisible(); // readiness gate
 
     // Act
     for (let i = 0; i < 100; i++) socket.send(tickFrame('ETH/USD', 1900 + i));
