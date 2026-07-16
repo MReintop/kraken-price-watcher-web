@@ -237,8 +237,6 @@ export function startKrakenTicker(
       }
 
       if (msg.channel !== 'ticker' || !Array.isArray(msg.data)) return;
-      conn.seenTicker = true;
-      promote(conn); // also what un-stales a feed that went quiet
       for (const t of msg.data) {
         // Checked, not trusted — it is JSON off a socket. A NaN draws nothing,
         // and an unsubscribed symbol has no row to reach.
@@ -247,7 +245,12 @@ export function startKrakenTicker(
         }
         const base = baseOf(t.symbol);
         buffer.set(base, { symbol: base, last: t.last });
+        // A price, not just a frame: an empty or malformed ticker proves the
+        // transport is alive — the watchdog's job — but leaves every price on
+        // screen where it was, so it cannot earn "Live".
+        conn.seenTicker = true;
       }
+      if (conn.seenTicker) promote(conn); // also un-stales a feed that went quiet
     };
 
     socket.onclose = () => {

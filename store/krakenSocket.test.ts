@@ -127,6 +127,22 @@ describe('startKrakenTicker', () => {
     expect(dispatch).not.toHaveBeenCalledWith(socketStatusChanged('live'));
   });
 
+  // A ticker frame proves the transport, which the watchdog already tracks. It
+  // is a price a live feed needs — an empty or malformed frame leaves every
+  // number on screen exactly where it was.
+  it('does not report live on a ticker frame with no usable price', () => {
+    // Arrange — every symbol acknowledged
+    startAndSubscribe(['btc']);
+
+    // Act — ticker-channel frames carrying nothing believable
+    latest().onmessage?.(tickerMessage([]));
+    latest().onmessage?.(tickerMessage([{ symbol: 'BTC/USD', last: 'NaN' }]));
+    latest().onmessage?.(tickerMessage([{ symbol: 'DOGE/USD', last: 1 }]));
+
+    // Assert — accepted, but still showing the seeded price
+    expect(dispatch).not.toHaveBeenCalledWith(socketStatusChanged('live'));
+  });
+
   it('does not report live when the subscription is rejected', () => {
     // Arrange
     startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
