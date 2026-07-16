@@ -22,10 +22,8 @@ export const subscribeRequest = (pairs: string[]) =>
     params: { channel: 'ticker', symbol: pairs },
   });
 
-// `data` carries more than `last` on the wire — change_pct among it — but only
-// `last` is read: change_pct is Kraken's own venue, while the 24h figure on
-// screen is CoinGecko's cross-exchange one, and mixing them swaps the source
-// under the label.
+// Only `last` is read from `data`, never change_pct: that is Kraken's own venue,
+// while the 24h figure on screen is CoinGecko's cross-exchange one.
 interface KrakenFrame {
   channel?: string;
   method?: string;

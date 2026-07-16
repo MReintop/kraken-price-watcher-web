@@ -152,11 +152,8 @@ export function startKrakenTicker(
       previous.socket.close();
     }
 
-    // Deliberately not set back to `connecting`: that status is the initial one
-    // and means no feed has ever arrived, so the price on screen is the server's
-    // own seed and current. A reconnect stays `offline` until a fresh ticker,
-    // because by then the price is the dead socket's last, and saying
-    // "connecting" over it would present it as current again.
+    // Not back to `connecting`: that means no feed has ever arrived, but after a
+    // drop the price is the dead socket's last. Stay `offline` until a fresh tick.
     conn.connectTimer = setTimeout(() => socket.close(), CONNECT_TIMEOUT_MS);
     // The last connection's answer is not this one's, and a total refusal closes
     // without settling — so its verdict would otherwise outlive it.
