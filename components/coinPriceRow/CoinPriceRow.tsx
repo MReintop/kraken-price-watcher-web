@@ -1,7 +1,8 @@
 'use client';
 
 import { useAppSelector } from '@/store/hooks';
-import { selectIsUnavailable, selectPrice } from '@/store/pricesSlice';
+import { selectEffectiveStatus, selectPrice } from '@/store/pricesSlice';
+import { isPriceCurrent, STATUS_LABEL } from '@/lib/feedStatus';
 import AnimatedPrice from '@/components/animatedPrice/AnimatedPrice';
 import styles from './CoinPriceRow.module.css';
 
@@ -20,7 +21,7 @@ export default function CoinPriceRow({
   changePct,
 }: CoinPriceRowProps) {
   const price = useAppSelector(selectPrice(symbol.toUpperCase()));
-  const unavailable = useAppSelector(selectIsUnavailable(symbol.toUpperCase()));
+  const status = useAppSelector(selectEffectiveStatus(symbol.toUpperCase()));
   if (price == null) return <></>;
 
   const up = changePct != null && changePct >= 0;
@@ -28,10 +29,13 @@ export default function CoinPriceRow({
 
   return (
     <div className={styles.body}>
+      {/* Muted the moment the number stops being the live one, whether the feed
+          died or this symbol was never on it. A dead feed's last price looks
+          exactly like a current one otherwise. */}
       <AnimatedPrice
         value={price}
         decimals={priceDecimals}
-        className={`${styles.price} ${unavailable ? styles.priceStale : ''}`}
+        className={`${styles.price} ${isPriceCurrent(status) ? '' : styles.priceStale}`}
       />
       <div className={styles.meta}>
         <span
@@ -43,11 +47,12 @@ export default function CoinPriceRow({
           {changePct == null ? '—' : `${up ? '+' : ''}${changePct.toFixed(2)}%`}
         </span>
 
-        {/* Said here, not only on the coin's own page: this is the screen people
-            actually watch, and a price Kraken refused to send looks exactly like
-            a live one until something says otherwise. Plain text rather than a
-            live region — eight rows announcing at once would help no one. */}
-        {unavailable && <span className={styles.stale}>Not updating</span>}
+        {/* Only what is true of this symbol alone; the feed's own state is said
+            once, above the list. Plain text rather than a live region — eight
+            rows announcing at once would help no one. */}
+        {status === 'unavailable' && (
+          <span className={styles.stale}>{STATUS_LABEL.unavailable}</span>
+        )}
       </div>
     </div>
   );

@@ -64,13 +64,24 @@ afterEach(() => {
 });
 
 // Arrange helper: start the ticker, open its socket, and let Kraken accept
-// *every* symbol — the point at which the feed is actually usable.
+// *every* symbol. Not a usable feed yet — an acknowledgement is Kraken agreeing
+// to send, and the price on screen is still whoever put it there.
 const startAndSubscribe = (symbols = ['btc', 'eth']) => {
   const stop = startKrakenTicker(symbols, dispatch as unknown as AppDispatch);
   latest().onopen?.();
   for (const symbol of symbols) {
     latest().onmessage?.(subscribeReply(`${symbol.toUpperCase()}/USD`));
   }
+  return stop;
+};
+
+// Arrange helper: the above, plus a first price — the point at which the feed is
+// actually usable, and the only point at which it may say so.
+const startLive = (symbols = ['btc', 'eth']) => {
+  const stop = startAndSubscribe(symbols);
+  latest().onmessage?.(
+    tickerMessage([{ symbol: `${symbols[0].toUpperCase()}/USD`, last: 1 }]),
+  );
   return stop;
 };
 
@@ -96,12 +107,40 @@ describe('startKrakenTicker', () => {
     expect(dispatch).not.toHaveBeenCalledWith(socketStatusChanged('live'));
   });
 
-  it('reports live once Kraken acknowledges the subscription', () => {
+  it('reports live once a subscribed symbol actually sends a price', () => {
     // Arrange / Act
-    startAndSubscribe();
+    startLive();
 
     // Assert
     expect(dispatch).toHaveBeenCalledWith(socketStatusChanged('live'));
+  });
+
+  // An acknowledgement is Kraken agreeing to send, not Kraken having sent. A
+  // symbol can be accepted and never deliver, and heartbeats keep the watchdog
+  // happy while it doesn't.
+  it('does not report live on the acknowledgement alone', () => {
+    // Arrange / Act — every symbol accepted, not one price yet
+    startAndSubscribe();
+
+    // Assert — "Live" here would describe a subscription, over a price that
+    // came from somewhere else entirely
+    expect(dispatch).not.toHaveBeenCalledWith(socketStatusChanged('live'));
+  });
+
+  // A ticker frame proves the transport, which the watchdog already tracks. It
+  // is a price a live feed needs — an empty or malformed frame leaves every
+  // number on screen exactly where it was.
+  it('does not report live on a ticker frame with no usable price', () => {
+    // Arrange — every symbol acknowledged
+    startAndSubscribe(['btc']);
+
+    // Act — ticker-channel frames carrying nothing believable
+    latest().onmessage?.(tickerMessage([]));
+    latest().onmessage?.(tickerMessage([{ symbol: 'BTC/USD', last: 'NaN' }]));
+    latest().onmessage?.(tickerMessage([{ symbol: 'DOGE/USD', last: 1 }]));
+
+    // Assert — accepted, but still showing the seeded price
+    expect(dispatch).not.toHaveBeenCalledWith(socketStatusChanged('live'));
   });
 
   it('does not report live when the subscription is rejected', () => {
@@ -134,9 +173,10 @@ describe('startKrakenTicker', () => {
     startKrakenTicker(['btc', 'eth'], dispatch as unknown as AppDispatch);
     latest().onopen?.();
 
-    // Act — one accepted, one refused
+    // Act — one accepted, one refused, and the accepted one sends
     latest().onmessage?.(subscribeReply('BTC/USD'));
     latest().onmessage?.(subscribeReply('ETH/USD', false));
+    latest().onmessage?.(tickerMessage([{ symbol: 'BTC/USD', last: 62888 }]));
 
     // Assert — BTC really is live; ETH is named rather than quietly frozen
     expect(dispatch).toHaveBeenCalledWith(subscriptionsSettled(['ETH']));
@@ -151,6 +191,7 @@ describe('startKrakenTicker', () => {
 
     // Act — ETH is never answered for at all
     jest.advanceTimersByTime(5000);
+    latest().onmessage?.(tickerMessage([{ symbol: 'BTC/USD', last: 62888 }]));
 
     // Assert — silence is an answer, and waiting forever is not
     expect(dispatch).toHaveBeenCalledWith(subscriptionsSettled(['ETH']));
@@ -173,6 +214,19 @@ describe('startKrakenTicker', () => {
 
   // The handshake deadline, not the watchdog: a socket that never answers has
   // no frames for a watchdog to miss, so waiting for one would wait forever.
+  it('gives up on a transport that never finishes connecting', () => {
+    // Arrange — constructed, and then never opened
+    startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
+    const socket = latest();
+
+    // Act
+    jest.advanceTimersByTime(10_000);
+
+    // Assert — every other deadline arms on open, so a socket stuck in
+    // CONNECTING would otherwise wait out the browser's own TCP timeout
+    expect(socket.closed).toBe(true);
+  });
+
   it('gives up on a socket that never answers the subscribe', () => {
     // Arrange
     startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
@@ -392,6 +446,43 @@ describe('startKrakenTicker', () => {
 
     // Assert — quiet is not the same as broken
     expect(dispatch).not.toHaveBeenCalledWith(socketStatusChanged('stale'));
+  });
+
+  // `connecting` is the one status that says the price on screen is current
+  // without the feed having proved anything — true of the server's seed, and a
+  // lie about a dead socket's last price. So the socket never returns to it.
+  it('does not go back to connecting when a dropped socket is replaced', () => {
+    // Arrange — a real feed, then the drop
+    startLive(['btc']);
+    latest().onclose?.();
+    dispatch.mockClear();
+
+    // Act — the replacement opens and is accepted, but sends no price
+    jest.advanceTimersByTime(2000);
+    latest().onopen?.();
+    latest().onmessage?.(subscribeReply('BTC/USD'));
+
+    // Assert — the last price is the dead connection's, and stays marked as such
+    expect(dispatch).not.toHaveBeenCalledWith(
+      socketStatusChanged('connecting'),
+    );
+    expect(dispatch).not.toHaveBeenCalledWith(socketStatusChanged('live'));
+  });
+
+  it('returns to live once the replacement connection sends a price', () => {
+    // Arrange — dropped, replaced, accepted, still silent
+    startLive(['btc']);
+    latest().onclose?.();
+    jest.advanceTimersByTime(2000);
+    latest().onopen?.();
+    latest().onmessage?.(subscribeReply('BTC/USD'));
+    dispatch.mockClear();
+
+    // Act
+    latest().onmessage?.(tickerMessage([{ symbol: 'BTC/USD', last: 63000 }]));
+
+    // Assert — this connection has now sent something, which is the whole test
+    expect(dispatch).toHaveBeenCalledWith(socketStatusChanged('live'));
   });
 
   it('reconnects after a drop', () => {

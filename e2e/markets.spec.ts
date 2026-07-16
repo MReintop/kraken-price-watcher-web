@@ -1,4 +1,65 @@
-import { test, expect } from './fixtures';
+import { test, expect, ANY_SOCKET } from './fixtures';
+
+// The markets list is the screen people leave open, so what it says when the
+// feed is not working is worth as much as what it says when it is.
+test.describe('Markets (feed state)', () => {
+  test('says it is connecting while Kraken has acknowledged nothing', async ({
+    page,
+  }) => {
+    // Arrange — a transport that opens and then says nothing at all
+    await page.routeWebSocket(ANY_SOCKET, (ws) => {
+      ws.onMessage(() => {});
+    });
+
+    // Act
+    await page.goto('/');
+
+    // Assert — an open socket is not a feed, and the list must not look normal
+    await expect(page.getByRole('status')).toHaveText('Connecting…');
+  });
+
+  test('names the one symbol Kraken refused, and leaves the rest alone', async ({
+    page,
+  }) => {
+    // Arrange — every symbol accepted except ETH/USD
+    await page.routeWebSocket(ANY_SOCKET, (ws) => {
+      ws.onMessage((raw) => {
+        const msg = JSON.parse(String(raw));
+        if (msg.method !== 'subscribe') return;
+        for (const symbol of msg.params?.symbol ?? []) {
+          ws.send(
+            JSON.stringify({
+              method: 'subscribe',
+              success: symbol !== 'ETH/USD',
+              result: { channel: 'ticker', symbol },
+            }),
+          );
+        }
+        // An accepted symbol sends: the feed is live only once one has, and a
+        // healthy feed is the premise of this test.
+        ws.send(
+          JSON.stringify({
+            channel: 'ticker',
+            data: [{ symbol: 'BTC/USD', last: 62888 }],
+          }),
+        );
+      });
+    });
+
+    // Act
+    await page.goto('/');
+
+    // Assert — the feed is healthy, so the banner stays quiet; one instrument
+    // on it is not, and only that row says so
+    await expect(page.getByRole('link', { name: /Ethereum/ })).toContainText(
+      'Not available',
+    );
+    await expect(page.getByRole('link', { name: /Bitcoin/ })).not.toContainText(
+      'Not available',
+    );
+    await expect(page.getByRole('status')).toBeEmpty();
+  });
+});
 
 test.describe('Markets (server-rendered)', () => {
   test('lists every coin from the server fetch', async ({ page }) => {

@@ -1,0 +1,27 @@
+.banner {
+  margin: 0;
+}
+
+/* Styled only when it has something to say — the empty live region has to stay
+   in the DOM, and an unstyled empty <p> collapses to nothing. */
+.banner:not(:empty) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-alt);
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.dot {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--muted);
+}

@@ -6,15 +6,44 @@ const BASE_DELAY_MS = 500;
 // worker, or a request, for as long as it feels like.
 const TIMEOUT_MS = 5000;
 
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+// A server can ask for longer than anyone will wait. Uncapped, a Retry-After of
+// an hour is an hour of a build worker held on one upstream's say-so.
+const MAX_RETRY_AFTER_MS = 30_000;
+
+export class AbortedError extends Error {
+  constructor() {
+    super('Request aborted');
+    this.name = 'AbortedError';
+  }
+}
+
+// Waiting is part of the request, so the caller's signal has to reach it: an
+// unabortable sleep honours a Retry-After long after the caller has gone.
+const sleep = (ms: number, signal?: AbortSignal | null) =>
+  new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(new AbortedError());
+    const settle = (finish: () => void) => () => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      finish();
+    };
+    const onAbort = settle(() => reject(new AbortedError()));
+    const timer = setTimeout(settle(resolve), ms);
+    signal?.addEventListener('abort', onAbort);
+  });
 
 const isRetryable = (status: number) => status === 429 || status >= 500;
 
 // Jitter, not just backoff: a build renders pages in parallel worker processes,
 // so an unjittered retry would re-collide with the same siblings every attempt.
+//
+// Only the delta-seconds form of Retry-After is read; the HTTP-date form parses
+// as NaN and falls through to the backoff.
 export function retryDelayMs(attempt: number, retryAfter: string | null) {
   const seconds = Number(retryAfter);
-  if (Number.isFinite(seconds) && seconds > 0) return seconds * 1000;
+  if (Number.isFinite(seconds) && seconds > 0) {
+    return Math.min(seconds * 1000, MAX_RETRY_AFTER_MS);
+  }
   const backoff = BASE_DELAY_MS * 2 ** attempt;
   return backoff / 2 + Math.random() * backoff;
 }
@@ -25,12 +54,14 @@ const attemptSignal = (caller: AbortSignal | null | undefined) => {
   return caller ? AbortSignal.any([caller, timeout]) : timeout;
 };
 
-// Retries only what a retry can fix. A 404 retried four times just wastes time.
+// Retries only what a retry can fix. A 404 retried four times just wastes time,
+// and a caller who walked away is not asking to be tried harder.
 export async function fetchWithRetry(
   url: string,
   init: RequestInit,
 ): Promise<Response> {
   for (let attempt = 0; ; attempt++) {
+    if (init.signal?.aborted) throw new AbortedError();
     const lastAttempt = attempt >= MAX_ATTEMPTS - 1;
 
     let response: Response;
@@ -42,15 +73,20 @@ export async function fetchWithRetry(
     } catch (error) {
       // A timeout, a reset, a DNS failure: no status to read, and as worth
       // retrying as the 5xx below. Left uncaught, the first blip took the whole
-      // page down.
+      // page down. The caller's own abort is the one exception — both reach here
+      // as the same aborted fetch, and only one of them wants another attempt.
+      if (init.signal?.aborted) throw new AbortedError();
       if (lastAttempt) throw error;
-      await sleep(retryDelayMs(attempt, null));
+      await sleep(retryDelayMs(attempt, null), init.signal);
       continue;
     }
 
     if (response.ok || lastAttempt || !isRetryable(response.status)) {
       return response;
     }
-    await sleep(retryDelayMs(attempt, response.headers.get('retry-after')));
+    await sleep(
+      retryDelayMs(attempt, response.headers.get('retry-after')),
+      init.signal,
+    );
   }
 }
