@@ -32,12 +32,11 @@ export default async function Markets() {
               </div>
 
               {/* The only live part — a client leaf reading this coin's slice.
-                The change comes with it as a prop: it is CoinGecko's, and the
-                socket has no business replacing it with Kraken's. */}
+                The change comes with it as a prop. */}
               <CoinPriceRow
                 symbol={coin.symbol}
                 priceDecimals={coin.price_decimals}
-                changePct={coin.price_change_percentage_24h}
+                changePct24H={coin.price_change_percentage_24h}
               />
             </Link>
           </li>

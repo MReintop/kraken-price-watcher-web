@@ -10,6 +10,7 @@ export default function Home() {
     <main className={styles.main}>
       <h1 className={styles.title}>Markets</h1>
 
+      {/* Added simply for parallel loading test in web*/}
       <Suspense fallback={<MarketSummarySkeleton />}>
         <MarketSummary />
       </Suspense>

@@ -9,8 +9,6 @@ interface ErrorPageProps {
 }
 
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
-  // The digest is all that reaches the browser in production, so a report of
-  // "it broke" can only be matched to a cause if it is logged here too.
   useEffect(() => {
     console.error('Route error:', error.digest, error);
   }, [error]);

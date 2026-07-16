@@ -71,10 +71,9 @@ export async function fetchWithRetry(
         signal: attemptSignal(init.signal),
       });
     } catch (error) {
-      // A timeout, a reset, a DNS failure: no status to read, and as worth
-      // retrying as the 5xx below. Left uncaught, the first blip took the whole
-      // page down. The caller's own abort is the one exception — both reach here
-      // as the same aborted fetch, and only one of them wants another attempt.
+      // A timeout, reset, or DNS failure has no status to read and is as worth
+      // retrying as a 5xx. The caller's own abort is the exception — same aborted
+      // fetch, but only a timeout wants another try.
       if (init.signal?.aborted) throw new AbortedError();
       if (lastAttempt) throw error;
       await sleep(retryDelayMs(attempt, null), init.signal);

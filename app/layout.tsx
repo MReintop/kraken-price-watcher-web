@@ -22,9 +22,6 @@ interface RootLayoutProps {
   children: React.ReactNode;
 }
 
-// Presentation only, and deliberately not async: whatever is fetched here is
-// fetched for every route, and the routes that need market data say so
-// themselves in app/(markets)/layout.tsx.
 export default function RootLayout({ children }: RootLayoutProps) {
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>

@@ -12,12 +12,10 @@ export type Coin = {
   symbol: string;
   image: string;
   current_price: number;
-  // Kraken's own precision for this market, carried beside the price rather than
-  // derived from it: how many decimals a price *can* have is a fact about the
-  // pair, and no amount of looking at one number reveals it.
+  // Kraken's precision for this market — a fact about the pair, not the number.
   price_decimals: number;
-  // Nullable because CoinGecko's is: it reports null on markets too thin to
-  // measure. A row without a percentage is honest; a row inventing 0.00% is not.
+  // Nullable because CoinGecko reports null on markets too thin to measure; a row
+  // inventing 0.00% would read as a market that did not move.
   price_change_percentage_24h: number | null;
   market_cap: number;
   total_volume: number;
@@ -27,9 +25,8 @@ export type Coin = {
 const COINGECKO_BASE =
   process.env.COINGECKO_BASE_URL ?? 'https://api.coingecko.com/api/v3';
 
-// CoinGecko says what a coin *is*; Kraken says what it is *worth*. The pair is
-// Kraken's own canonical name, which is what its responses are keyed by.
-// Using kraken because of CoinGecko rate limit
+// CoinGecko says what a coin is; Kraken says what it is worth. The pair is
+// Kraken's own canonical name, which is how its responses are keyed.
 const TRACKED_COINS = [
   { id: 'bitcoin', pair: 'XXBTZUSD' },
   { id: 'ethereum', pair: 'XETHZUSD' },
@@ -65,8 +62,7 @@ const isText = (value: unknown): value is string =>
 const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
 
-// The type above is what CoinGecko documents, not what it sent. The change is
-// allowed to be null — it really does send that on thin markets.
+// The body is cast, not validated; the change is genuinely null on thin markets.
 function toCoinMetadata(raw: unknown): CoinMetadata | null {
   if (typeof raw !== 'object' || raw === null) return null;
   const coin = raw as Record<string, unknown>;
@@ -107,8 +103,8 @@ async function fetchCoinMetadata(): Promise<CoinMetadata[]> {
     .filter((coin): coin is CoinMetadata => coin !== null);
 }
 
-// Price from Kraken, the same source as the socket and the candles. The change
-// stays CoinGecko's and the socket never touches it: same window, other market.
+// Price from Kraken (as the socket and candles use); the 24h change stays
+// CoinGecko's — same window, different market.
 export async function getCoins(): Promise<Coin[]> {
   const pairs = TRACKED_COINS.map((coin) => coin.pair);
   const [metadata, prices, decimals] = await Promise.all([
@@ -121,8 +117,7 @@ export async function getCoins(): Promise<Coin[]> {
     const coin = metadata.find((entry) => entry.id === id);
     const last = prices.get(pair);
     const places = decimals.get(pair);
-    // A price with no precision to render it at cannot be shown honestly, so it
-    // is dropped like a missing one rather than guessed at.
+    // No precision to render it at, so dropped like a missing price, not guessed.
     if (!coin || last == null || places == null) return [];
     return [{ ...coin, current_price: last, price_decimals: places }];
   });
