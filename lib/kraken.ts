@@ -34,9 +34,8 @@ async function krakenGet<T>(path: string, revalidate: number): Promise<T> {
 // a change from it measures however long today has been, not 24 hours.
 type TickerResult = Record<string, { c: [string, string] }>;
 
-// The wire type is checked before the conversion, never after: Number('') is 0,
-// and so are Number(null), Number(false) and Number([]). Every one of those
-// passes a finite check and renders as a real price of nothing.
+// Wire type checked before the conversion: Number('') is 0, as are Number(null),
+// Number(false) and Number([]) — all finite, all a real price of nothing.
 function toNumber(raw: unknown, context: string): number {
   const value =
     typeof raw === 'number'
@@ -80,8 +79,8 @@ function toDecimals(raw: unknown, context: string): number {
   return value;
 }
 
-// Reference data, not market data: a pair's precision changes about never, so
-// this is cached far longer than a price and asked for once per build.
+// Reference data: a pair's precision changes about never, so it's cached far
+// longer than a price.
 export async function fetchKrakenPairDecimals(
   pairs: readonly string[],
 ): Promise<Map<string, number>> {
@@ -116,8 +115,8 @@ export async function fetchKrakenPrices(
   );
 }
 
-// Seconds since the epoch, and the chart's x-axis. A zero is 1970, and one row
-// carrying it stretches the domain across half a century of empty space.
+// Seconds since the epoch. A zero is 1970, and one such row stretches the chart's
+// x-axis across half a century of empty space.
 function toTimestamp(raw: unknown, context: string): number {
   const seconds = toNumber(raw, context);
   if (seconds <= 0) {

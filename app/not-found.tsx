@@ -1,8 +1,6 @@
 import Link from 'next/link';
 import styles from './not-found.module.css';
 
-// Catches a bad URL and the coin detail page's notFound() alike, so it cannot
-// name the coin that was asked for — hence the general wording.
 export default function NotFound() {
   return (
     <main className={styles.main}>

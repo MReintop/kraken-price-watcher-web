@@ -11,9 +11,8 @@ export const STATUS_LABEL: Record<EffectiveStatus, string> = {
   unavailable: 'Not available',
 };
 
-// Whether the number on screen is still the one Kraken last sent. `connecting`
-// counts, and only because the socket never returns to it: it means no feed has
-// arrived yet, so the price is the server's own fresh seed. A reconnect stays
-// `offline` precisely so a dead socket's last price cannot pass through here.
+// `connecting` counts as current only because the socket never returns to it: it
+// means the server's fresh seed, and a reconnect stays `offline` until a ticker,
+// so a dead socket's last price never reaches here.
 export const isPriceCurrent = (status: EffectiveStatus) =>
   status === 'live' || status === 'connecting';

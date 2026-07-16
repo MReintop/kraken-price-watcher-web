@@ -7,23 +7,18 @@ export interface KrakenTick {
   last: number;
 }
 
-// An open socket is not a working feed. `live` means Kraken acknowledged the
-// subscription *and* has sent something since; `stale` is the dangerous state a
-// boolean cannot express — connected, believed healthy, and silently frozen.
+// `live` needs an ack for every symbol and a ticker since; `stale` is the one a
+// boolean cannot express — connected, believed healthy, silently frozen.
 export type SocketStatus = 'connecting' | 'live' | 'stale' | 'offline';
 
-// The feed is global; being subscribed is not. A symbol Kraken refused has its
-// own state, and it outranks a healthy socket's.
+// A refused symbol has its own state, and it outranks a healthy global socket.
 export type EffectiveStatus = SocketStatus | 'unavailable';
 
-// The last traded price and nothing else. The 24h change is CoinGecko's and
-// server data, so it reaches the row as a prop — beside a Kraken price in one
-// record, something eventually overwrites it with Kraken's.
+// Live prices only — identity and 24h change are server data, delivered as props.
 export interface PricesState {
   bySymbol: Record<string, number>;
   status: SocketStatus;
-  // Symbols Kraken refused, or never answered for. The connection can be healthy
-  // while one instrument is not, and a global flag cannot say which.
+  // Symbols Kraken refused: a healthy socket cannot say which instrument is not.
   unavailable: string[];
 }
 
@@ -38,8 +33,7 @@ export function seedPricesFromCoins(coins: Coin[]): PricesState {
     bySymbol: Object.fromEntries(
       coins.map((coin) => [coin.symbol.toUpperCase(), coin.current_price]),
     ),
-    // The seed is server data, not a feed. Only an acknowledged subscription
-    // may promote this to live.
+    // The seed is server data, not a feed: only a subscription promotes to live.
     status: 'connecting',
     unavailable: [],
   };
@@ -51,8 +45,8 @@ const pricesSlice = createSlice({
   reducers: {
     tickersApplied(state, action: PayloadAction<KrakenTick[]>) {
       for (const tick of action.payload) {
-        // Repeat trades at one price level are common, and re-assigning the same
-        // number would still churn the store for a row that has not changed.
+        // Skip an unchanged price: repeat trades at one level are common, and
+        // re-assigning would churn the row for nothing.
         if (state.bySymbol[tick.symbol] === tick.last) continue;
         state.bySymbol[tick.symbol] = tick.last;
       }
@@ -77,10 +71,8 @@ export const selectPrice = (symbol: string) => (s: RootState) =>
   s.prices.bySymbol[symbol];
 export const selectSocketStatus = (s: RootState) => s.prices.status;
 
-// What this symbol's price is actually worth, in one place: a live socket says
-// nothing about an instrument it never agreed to send. One value per symbol
-// rather than the array itself, so a row re-renders when its own answer
-// changes and not whenever any other symbol's does.
+// Per-symbol, so a row re-renders on its own answer, not any other symbol's: a
+// live socket says nothing about an instrument it never agreed to send.
 export const selectEffectiveStatus =
   (symbol: string) =>
   (s: RootState): EffectiveStatus =>
