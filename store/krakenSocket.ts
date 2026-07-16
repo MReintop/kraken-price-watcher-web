@@ -1,5 +1,13 @@
 import type { AppDispatch } from './store';
 import {
+  baseOf,
+  pairFor,
+  parseFrame,
+  readSubscribeReply,
+  readTickers,
+  subscribeRequest,
+} from '../lib/krakenProtocol';
+import {
   socketStatusChanged,
   subscriptionsSettled,
   tickersApplied,
@@ -20,18 +28,6 @@ const STALE_AFTER_MS = 10_000;
 // How long Kraken gets to answer the subscribe. A reply that never comes is a
 // symbol we are not subscribed to, and saying so beats waiting forever.
 const HANDSHAKE_MS = 5000;
-
-interface KrakenMessage {
-  channel?: string;
-  // A subscribe reply — one per symbol, and `result.symbol` says which. Reading
-  // only `success` is how one accepted symbol comes to speak for eight.
-  method?: string;
-  success?: boolean;
-  result?: { symbol?: string };
-  // change_pct is not read: Kraken's own market, where the figure on screen is
-  // CoinGecko's cross-exchange one. Same window, different market.
-  data?: { symbol: string; last: number }[];
-}
 
 const MAX_BACKOFF_MS = 30_000;
 
@@ -56,9 +52,6 @@ interface Connection {
   seenTicker: boolean;
 }
 
-// "BTC/USD" -> "BTC", the form the store is keyed by.
-const baseOf = (pair: string) => pair.split('/')[0];
-
 // Jittered, so a Kraken-side blip does not bring every client back in lockstep —
 // the same argument lib/http.ts already makes for its retries.
 const jittered = (ms: number) => ms / 2 + Math.random() * (ms / 2);
@@ -67,7 +60,7 @@ export function startKrakenTicker(
   symbols: string[],
   dispatch: AppDispatch,
 ): () => void {
-  const pairs = symbols.map((s) => `${s.toUpperCase()}/USD`);
+  const pairs = symbols.map(pairFor);
   const subscribedPairs = new Set(pairs);
   const buffer = new Map<string, KrakenTick>(); // latest tick per symbol wins
 
@@ -159,11 +152,8 @@ export function startKrakenTicker(
       previous.socket.close();
     }
 
-    // Deliberately not set back to `connecting`: that status is the initial one
-    // and means no feed has ever arrived, so the price on screen is the server's
-    // own seed and current. A reconnect stays `offline` until a fresh ticker,
-    // because by then the price is the dead socket's last, and saying
-    // "connecting" over it would present it as current again.
+    // Not back to `connecting`: that means no feed has ever arrived, but after a
+    // drop the price is the dead socket's last. Stay `offline` until a fresh tick.
     conn.connectTimer = setTimeout(() => socket.close(), CONNECT_TIMEOUT_MS);
     // The last connection's answer is not this one's, and a total refusal closes
     // without settling — so its verdict would otherwise outlive it.
@@ -194,12 +184,7 @@ export function startKrakenTicker(
     socket.onopen = () => {
       // Not live yet, and the backoff stays put: a server that accepts and drops
       // would otherwise reset it every cycle and spin at a reconnect a second.
-      socket.send(
-        JSON.stringify({
-          method: 'subscribe',
-          params: { channel: 'ticker', symbol: pairs },
-        }),
-      );
+      socket.send(subscribeRequest(pairs));
       conn.connectTimer = stopTimer(conn.connectTimer);
       conn.flushTimer = setInterval(flush, FLUSH_MS);
       armWatchdog(conn);
@@ -217,40 +202,32 @@ export function startKrakenTicker(
     socket.onmessage = (event) => {
       if (conn.generation !== generation) return;
 
-      let msg: KrakenMessage;
-      try {
-        msg = JSON.parse((event as { data: string }).data);
-      } catch {
-        return;
-      }
+      const frame = parseFrame((event as { data: string }).data);
+      if (!frame) return;
 
       armWatchdog(conn);
 
-      if (msg.method === 'subscribe') {
-        const pair = msg.result?.symbol;
-        // Without a symbol there is no telling who was answered for; the
-        // handshake deadline is what covers this rather than a guess.
-        if (!pair || !awaiting.delete(pair)) return;
-        if (!msg.success) refused.add(pair);
+      const reply = readSubscribeReply(frame);
+      if (reply) {
+        // A reply for a pair we are not waiting on answers for nobody; the
+        // handshake deadline covers that rather than a guess.
+        if (!awaiting.delete(reply.pair)) return;
+        if (!reply.accepted) refused.add(reply.pair);
         settle();
         return;
       }
 
-      if (msg.channel !== 'ticker' || !Array.isArray(msg.data)) return;
-      for (const t of msg.data) {
-        // Checked, not trusted — it is JSON off a socket. A NaN draws nothing,
-        // and an unsubscribed symbol has no row to reach.
-        if (!subscribedPairs.has(t?.symbol) || !Number.isFinite(t?.last)) {
-          continue;
-        }
-        const base = baseOf(t.symbol);
-        buffer.set(base, { symbol: base, last: t.last });
-        // A price, not just a frame: an empty or malformed ticker proves the
-        // transport is alive — the watchdog's job — but leaves every price on
-        // screen where it was, so it cannot earn "Live".
-        conn.seenTicker = true;
+      // Only believable rows survive readTickers, so an empty or malformed frame
+      // returns here: it proves the transport, the watchdog's job, but carries no
+      // price and cannot earn "Live".
+      const tickers = readTickers(frame, subscribedPairs);
+      if (tickers.length === 0) return;
+
+      conn.seenTicker = true;
+      promote(conn); // also what un-stales a feed that went quiet
+      for (const { pair, last } of tickers) {
+        buffer.set(baseOf(pair), { symbol: baseOf(pair), last });
       }
-      if (conn.seenTicker) promote(conn); // also un-stales a feed that went quiet
     };
 
     socket.onclose = () => {
