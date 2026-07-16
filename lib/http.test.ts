@@ -1,4 +1,4 @@
-import { fetchWithRetry, retryDelayMs } from './http';
+import { AbortedError, fetchWithRetry, retryDelayMs } from './http';
 
 const throttled = { ok: false, status: 429, headers: { get: () => null } };
 const ok = { ok: true, status: 200, headers: { get: () => null } };
@@ -10,6 +10,14 @@ describe('retryDelayMs', () => {
 
     // Assert
     expect(result).toBe(3000);
+  });
+
+  it('caps a Retry-After asking for longer than anyone will wait', () => {
+    // Arrange / Act — an upstream asking for an hour
+    const result = retryDelayMs(0, '3600');
+
+    // Assert — one upstream's say-so cannot hold a build worker for an hour
+    expect(result).toBe(30_000);
   });
 
   it('ignores a Retry-After that is not a positive number', () => {
@@ -169,6 +177,48 @@ describe('fetchWithRetry', () => {
 
     // Assert — bounded attempts, then the caller is told, not left waiting
     expect(fetchMock).toHaveBeenCalledTimes(4);
+  });
+
+  // The caller's abort and the attempt timeout arrive here as the same rejected
+  // fetch, and only one of them is asking to be tried harder.
+  it('does not retry a request the caller abandoned', async () => {
+    // Arrange — the caller aborts mid-flight, as a superseded request does
+    const controller = new AbortController();
+    const fetchMock = jest.fn().mockImplementation(() => {
+      controller.abort();
+      return Promise.reject(new Error('AbortError'));
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    // Act
+    const pending = fetchWithRetry('https://example.test', {
+      signal: controller.signal,
+    });
+    const settled = expect(pending).rejects.toThrow(AbortedError);
+    await jest.advanceTimersByTimeAsync(60_000);
+    await settled;
+
+    // Assert — nobody is waiting for this answer
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('stops waiting out a backoff once the caller aborts', async () => {
+    // Arrange — a 429 sends the retry into its backoff sleep
+    const controller = new AbortController();
+    const fetchMock = jest.fn().mockResolvedValue(throttled);
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    // Act — abort once the sleep is armed, not before it starts
+    const pending = fetchWithRetry('https://example.test', {
+      signal: controller.signal,
+    });
+    await jest.advanceTimersByTimeAsync(0);
+    controller.abort();
+
+    // Assert — the wait ends with the caller, rather than honouring a
+    // Retry-After for a screen that is already gone
+    await expect(pending).rejects.toThrow(AbortedError);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('bounds every attempt with a timeout signal', async () => {

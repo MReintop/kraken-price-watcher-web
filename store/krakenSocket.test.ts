@@ -173,6 +173,19 @@ describe('startKrakenTicker', () => {
 
   // The handshake deadline, not the watchdog: a socket that never answers has
   // no frames for a watchdog to miss, so waiting for one would wait forever.
+  it('gives up on a transport that never finishes connecting', () => {
+    // Arrange — constructed, and then never opened
+    startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
+    const socket = latest();
+
+    // Act
+    jest.advanceTimersByTime(10_000);
+
+    // Assert — every other deadline arms on open, so a socket stuck in
+    // CONNECTING would otherwise wait out the browser's own TCP timeout
+    expect(socket.closed).toBe(true);
+  });
+
   it('gives up on a socket that never answers the subscribe', () => {
     // Arrange
     startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
