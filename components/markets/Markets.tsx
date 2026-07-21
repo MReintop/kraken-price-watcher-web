@@ -4,8 +4,13 @@ import CoinPriceRow from '@/components/coinPriceRow/CoinPriceRow';
 import FeedStatus from '@/components/feedStatus/FeedStatus';
 import styles from './Markets.module.css';
 
+import { serverVariant } from '@/lib/experiments/server';
+import { CHANGE_PILL_STYLE } from '@/lib/experiments';
+
 export default async function Markets() {
   const coins = await getCoins();
+
+  const pillVariant = await serverVariant(CHANGE_PILL_STYLE);
 
   return (
     <>
@@ -37,6 +42,7 @@ export default async function Markets() {
                 symbol={coin.symbol}
                 priceDecimals={coin.price_decimals}
                 changePct24H={coin.price_change_percentage_24h}
+                changePillVariant={pillVariant}
               />
             </Link>
           </li>
