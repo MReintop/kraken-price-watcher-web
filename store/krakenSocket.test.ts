@@ -1,4 +1,5 @@
 import { startKrakenTicker } from './krakenSocket';
+import type { TrackedMarket } from '../lib/coins';
 import {
   tickersApplied,
   socketStatusChanged,
@@ -46,6 +47,16 @@ const subscribeReply = (symbol: string, success = true) => ({
   }),
 });
 
+// Subscribing is the registry's business, not a string transform: these stand
+// in for TRACKED_MARKETS entries.
+const marketsFor = (symbols: string[]): TrackedMarket[] =>
+  symbols.map((symbol) => ({
+    id: symbol,
+    symbol: symbol.toUpperCase(),
+    restPair: `${symbol.toUpperCase()}USD`,
+    websocketPair: `${symbol.toUpperCase()}/USD`,
+  }));
+
 let dispatch: jest.Mock;
 
 beforeEach(() => {
@@ -67,7 +78,10 @@ afterEach(() => {
 // *every* symbol. Not a usable feed yet — an acknowledgement is Kraken agreeing
 // to send, and the price on screen is still whoever put it there.
 const startAndSubscribe = (symbols = ['btc', 'eth']) => {
-  const stop = startKrakenTicker(symbols, dispatch as unknown as AppDispatch);
+  const stop = startKrakenTicker(
+    marketsFor(symbols),
+    dispatch as unknown as AppDispatch,
+  );
   latest().onopen?.();
   for (const symbol of symbols) {
     latest().onmessage?.(subscribeReply(`${symbol.toUpperCase()}/USD`));
@@ -100,7 +114,7 @@ describe('startKrakenTicker', () => {
 
   it('stays connecting while the transport is open but unacknowledged', () => {
     // Arrange / Act — opened, subscribe sent, no reply yet
-    startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
+    startKrakenTicker(marketsFor(['btc']), dispatch as unknown as AppDispatch);
     latest().onopen?.();
 
     // Assert — an open socket says nothing about whether Kraken accepted us
@@ -145,7 +159,7 @@ describe('startKrakenTicker', () => {
 
   it('does not report live when the subscription is rejected', () => {
     // Arrange
-    startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
+    startKrakenTicker(marketsFor(['btc']), dispatch as unknown as AppDispatch);
     latest().onopen?.();
 
     // Act — Kraken answers, and refuses
@@ -158,7 +172,10 @@ describe('startKrakenTicker', () => {
   // Kraken answers per symbol. One "yes" is one symbol, not a feed.
   it('stays connecting while any symbol is still unanswered', () => {
     // Arrange
-    startKrakenTicker(['btc', 'eth'], dispatch as unknown as AppDispatch);
+    startKrakenTicker(
+      marketsFor(['btc', 'eth']),
+      dispatch as unknown as AppDispatch,
+    );
     latest().onopen?.();
 
     // Act — BTC accepted, ETH still outstanding
@@ -170,7 +187,10 @@ describe('startKrakenTicker', () => {
 
   it('names the symbol Kraken refused, and stays live for the rest', () => {
     // Arrange
-    startKrakenTicker(['btc', 'eth'], dispatch as unknown as AppDispatch);
+    startKrakenTicker(
+      marketsFor(['btc', 'eth']),
+      dispatch as unknown as AppDispatch,
+    );
     latest().onopen?.();
 
     // Act — one accepted, one refused, and the accepted one sends
@@ -185,7 +205,10 @@ describe('startKrakenTicker', () => {
 
   it('treats a symbol Kraken never answers for as unavailable', () => {
     // Arrange
-    startKrakenTicker(['btc', 'eth'], dispatch as unknown as AppDispatch);
+    startKrakenTicker(
+      marketsFor(['btc', 'eth']),
+      dispatch as unknown as AppDispatch,
+    );
     latest().onopen?.();
     latest().onmessage?.(subscribeReply('BTC/USD'));
 
@@ -200,7 +223,7 @@ describe('startKrakenTicker', () => {
 
   it('does not go live when every symbol is refused', () => {
     // Arrange
-    startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
+    startKrakenTicker(marketsFor(['btc']), dispatch as unknown as AppDispatch);
     latest().onopen?.();
     const socket = latest();
 
@@ -216,7 +239,7 @@ describe('startKrakenTicker', () => {
   // no frames for a watchdog to miss, so waiting for one would wait forever.
   it('gives up on a transport that never finishes connecting', () => {
     // Arrange — constructed, and then never opened
-    startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
+    startKrakenTicker(marketsFor(['btc']), dispatch as unknown as AppDispatch);
     const socket = latest();
 
     // Act
@@ -229,7 +252,7 @@ describe('startKrakenTicker', () => {
 
   it('gives up on a socket that never answers the subscribe', () => {
     // Arrange
-    startKrakenTicker(['btc'], dispatch as unknown as AppDispatch);
+    startKrakenTicker(marketsFor(['btc']), dispatch as unknown as AppDispatch);
     latest().onopen?.();
     const socket = latest();
 
@@ -539,12 +562,12 @@ describe('startKrakenTicker', () => {
     // Arrange — two clients, drawing different jitter
     jest.spyOn(Math, 'random').mockReturnValueOnce(0).mockReturnValueOnce(1);
     const first = startKrakenTicker(
-      ['btc'],
+      marketsFor(['btc']),
       dispatch as unknown as AppDispatch,
     );
     const firstSocket = latest();
     const second = startKrakenTicker(
-      ['btc'],
+      marketsFor(['btc']),
       dispatch as unknown as AppDispatch,
     );
     const secondSocket = latest();
@@ -669,5 +692,71 @@ describe('startKrakenTicker', () => {
 
     // Assert
     expect(socket.closed).toBe(true);
+  });
+
+  it('opens no socket at all when there is nothing to subscribe to', () => {
+    // Arrange / Act — an empty subscribe is never answered, so it would sit out
+    // the handshake, close, and reconnect on the backoff forever
+    const stop = startKrakenTicker([], dispatch as unknown as AppDispatch);
+    jest.advanceTimersByTime(120_000);
+
+    // Assert — and the caller still gets a cleanup it can call
+    expect(FakeWebSocket.instances).toHaveLength(0);
+    expect(stop).not.toThrow();
+  });
+
+  it("keys a tick by the registry's symbol, not by the pair's own prefix", () => {
+    // Arrange — Kraken calls dogecoin XDG; the row and the seed call it DOGE
+    startKrakenTicker(
+      [
+        {
+          id: 'dogecoin',
+          symbol: 'DOGE',
+          restPair: 'XDGUSD',
+          websocketPair: 'XDG/USD',
+        },
+      ],
+      dispatch as unknown as AppDispatch,
+    );
+    latest().onopen?.();
+    latest().onmessage?.(subscribeReply('XDG/USD'));
+
+    // Act
+    latest().onmessage?.(tickerMessage([{ symbol: 'XDG/USD', last: 0.42 }]));
+    jest.advanceTimersByTime(250);
+
+    // Assert — splitting the pair would dispatch XDG, which no row reads
+    expect(dispatch).toHaveBeenCalledWith(
+      tickersApplied([{ symbol: 'DOGE', last: 0.42 }]),
+    );
+  });
+
+  it('names a refused pair by its symbol too, so the right row says so', () => {
+    // Arrange
+    startKrakenTicker(
+      [
+        {
+          id: 'dogecoin',
+          symbol: 'DOGE',
+          restPair: 'XDGUSD',
+          websocketPair: 'XDG/USD',
+        },
+        {
+          id: 'bitcoin',
+          symbol: 'BTC',
+          restPair: 'XXBTZUSD',
+          websocketPair: 'BTC/USD',
+        },
+      ],
+      dispatch as unknown as AppDispatch,
+    );
+    latest().onopen?.();
+
+    // Act
+    latest().onmessage?.(subscribeReply('XDG/USD', false));
+    latest().onmessage?.(subscribeReply('BTC/USD'));
+
+    // Assert
+    expect(dispatch).toHaveBeenCalledWith(subscriptionsSettled(['DOGE']));
   });
 });

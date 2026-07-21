@@ -11,11 +11,6 @@ export interface SubscribeReply {
   accepted: boolean;
 }
 
-// "BTC/USD" -> "BTC", the form the store is keyed by.
-export const baseOf = (pair: string) => pair.split('/')[0];
-
-export const pairFor = (symbol: string) => `${symbol.toUpperCase()}/USD`;
-
 export const subscribeRequest = (pairs: string[]) =>
   JSON.stringify({
     method: 'subscribe',
@@ -53,8 +48,9 @@ export function readSubscribeReply(frame: KrakenFrame): SubscribeReply | null {
 }
 
 // Returns [] for a frame that is not a ticker, and drops rows that cannot be
-// believed: a price that is not a finite number reaches chart geometry and draws
-// nothing at all, and a pair we never asked for has no row to land in.
+// believed: a price that is not a finite positive number reaches chart geometry
+// and draws nothing at all — and zero or negative would still overwrite a good
+// price on the way. A pair we never asked for has no row to land in.
 export function readTickers(
   frame: KrakenFrame,
   subscribed: ReadonlySet<string>,
@@ -66,7 +62,9 @@ export function readTickers(
     const pair = row?.symbol;
     const last = row?.last;
     if (typeof pair !== 'string' || !subscribed.has(pair)) continue;
-    if (typeof last !== 'number' || !Number.isFinite(last)) continue;
+    if (typeof last !== 'number' || !Number.isFinite(last) || last <= 0) {
+      continue;
+    }
     tickers.push({ pair, last });
   }
   return tickers;

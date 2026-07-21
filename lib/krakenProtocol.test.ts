@@ -1,6 +1,4 @@
 import {
-  baseOf,
-  pairFor,
   parseFrame,
   readSubscribeReply,
   readTickers,
@@ -8,26 +6,6 @@ import {
 } from './krakenProtocol';
 
 const SUBSCRIBED = new Set(['BTC/USD', 'ETH/USD']);
-
-describe('pairFor', () => {
-  it('builds the USD pair Kraken names, upper-cased', () => {
-    // Arrange / Act
-    const result = pairFor('btc');
-
-    // Assert — a lower-case symbol reaches the store and matches nothing
-    expect(result).toBe('BTC/USD');
-  });
-});
-
-describe('baseOf', () => {
-  it('cuts the pair down to the symbol the store is keyed by', () => {
-    // Arrange / Act
-    const result = baseOf('BTC/USD');
-
-    // Assert
-    expect(result).toBe('BTC');
-  });
-});
 
 describe('subscribeRequest', () => {
   it('asks for the ticker channel for every pair at once', () => {
@@ -158,6 +136,24 @@ describe('readTickers', () => {
     );
 
     // Assert — a non-finite price reaches chart geometry and draws nothing
+    expect(result).toEqual([]);
+  });
+
+  it('drops a price that is not positive', () => {
+    // Arrange / Act — the same invariant the REST parser already applies; here
+    // a bad tick would overwrite a good price rather than just fail to show
+    const result = readTickers(
+      {
+        channel: 'ticker',
+        data: [
+          { symbol: 'BTC/USD', last: 0 },
+          { symbol: 'ETH/USD', last: -1 },
+        ],
+      },
+      SUBSCRIBED,
+    );
+
+    // Assert
     expect(result).toEqual([]);
   });
 

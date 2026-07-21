@@ -9,6 +9,7 @@ import type { Candle } from './candleChart';
 export type Coin = {
   id: string;
   name: string;
+  // From TRACKED_MARKETS, not from CoinGecko: it is the store's key.
   symbol: string;
   image: string;
   current_price: number;
@@ -25,21 +26,68 @@ export type Coin = {
 const COINGECKO_BASE =
   process.env.COINGECKO_BASE_URL ?? 'https://api.coingecko.com/api/v3';
 
-// CoinGecko says what a coin is; Kraken says what it is worth. The pair is
-// Kraken's own canonical name, which is how its responses are keyed.
-const TRACKED_COINS = [
-  { id: 'bitcoin', pair: 'XXBTZUSD' },
-  { id: 'ethereum', pair: 'XETHZUSD' },
-  { id: 'solana', pair: 'SOLUSD' },
-  { id: 'cardano', pair: 'ADAUSD' },
-  { id: 'ripple', pair: 'XXRPZUSD' },
-  { id: 'dogecoin', pair: 'XDGUSD' },
-  { id: 'polkadot', pair: 'DOTUSD' },
-  { id: 'chainlink', pair: 'LINKUSD' },
-] as const;
+// What we track, and every name each upstream knows it by. This is the
+// authority: CoinGecko says what a coin *is*, but its symbol is display
+// metadata, never a protocol identifier. Deriving the socket's pair from it
+// unsubscribes dogecoin the day CoinGecko renames a ticker — and Kraken calls
+// that market XDG, which CoinGecko has never called it.
+export interface TrackedMarket {
+  id: string; // CoinGecko's id, and how a detail route names a coin
+  symbol: string; // display, and the key the price store is keyed by
+  restPair: string; // Kraken REST: Ticker, OHLC and AssetPairs are keyed by it
+  websocketPair: string; // Kraken WebSocket v2, which names markets differently
+}
 
-const pairFor = (id: string) =>
-  TRACKED_COINS.find((coin) => coin.id === id)?.pair;
+export const TRACKED_MARKETS: readonly TrackedMarket[] = [
+  {
+    id: 'bitcoin',
+    symbol: 'BTC',
+    restPair: 'XXBTZUSD',
+    websocketPair: 'BTC/USD',
+  },
+  {
+    id: 'ethereum',
+    symbol: 'ETH',
+    restPair: 'XETHZUSD',
+    websocketPair: 'ETH/USD',
+  },
+  { id: 'solana', symbol: 'SOL', restPair: 'SOLUSD', websocketPair: 'SOL/USD' },
+  {
+    id: 'cardano',
+    symbol: 'ADA',
+    restPair: 'ADAUSD',
+    websocketPair: 'ADA/USD',
+  },
+  {
+    id: 'ripple',
+    symbol: 'XRP',
+    restPair: 'XXRPZUSD',
+    websocketPair: 'XRP/USD',
+  },
+  {
+    id: 'dogecoin',
+    symbol: 'DOGE',
+    restPair: 'XDGUSD',
+    websocketPair: 'XDG/USD',
+  },
+  {
+    id: 'polkadot',
+    symbol: 'DOT',
+    restPair: 'DOTUSD',
+    websocketPair: 'DOT/USD',
+  },
+  {
+    id: 'chainlink',
+    symbol: 'LINK',
+    restPair: 'LINKUSD',
+    websocketPair: 'LINK/USD',
+  },
+];
+
+export const marketFor = (id: string): TrackedMarket | undefined =>
+  TRACKED_MARKETS.find((market) => market.id === id);
+
+const pairFor = (id: string) => marketFor(id)?.restPair;
 
 type CoinMetadata = Pick<
   Coin,
@@ -52,8 +100,8 @@ type CoinMetadata = Pick<
   | 'price_change_percentage_24h'
 >;
 
-const METADATA_URL = `${COINGECKO_BASE}/coins/markets?vs_currency=usd&ids=${TRACKED_COINS.map(
-  (coin) => coin.id,
+const METADATA_URL = `${COINGECKO_BASE}/coins/markets?vs_currency=usd&ids=${TRACKED_MARKETS.map(
+  (market) => market.id,
 ).join(',')}&price_change_percentage=24h`;
 
 const isText = (value: unknown): value is string =>
@@ -106,20 +154,22 @@ async function fetchCoinMetadata(): Promise<CoinMetadata[]> {
 // Price from Kraken (as the socket and candles use); the 24h change stays
 // CoinGecko's — same window, different market.
 export async function getCoins(): Promise<Coin[]> {
-  const pairs = TRACKED_COINS.map((coin) => coin.pair);
+  const pairs = TRACKED_MARKETS.map((market) => market.restPair);
   const [metadata, prices, decimals] = await Promise.all([
     fetchCoinMetadata(),
     fetchKrakenPrices(pairs),
     fetchKrakenPairDecimals(pairs),
   ]);
 
-  return TRACKED_COINS.flatMap(({ id, pair }) => {
+  return TRACKED_MARKETS.flatMap(({ id, symbol, restPair }) => {
     const coin = metadata.find((entry) => entry.id === id);
-    const last = prices.get(pair);
-    const places = decimals.get(pair);
+    const last = prices.get(restPair);
+    const places = decimals.get(restPair);
     // No precision to render it at, so dropped like a missing price, not guessed.
     if (!coin || last == null || places == null) return [];
-    return [{ ...coin, current_price: last, price_decimals: places }];
+    // Our symbol, not CoinGecko's: this one keys the price store, and the socket
+    // resolves the same one from the pair it subscribed to.
+    return [{ ...coin, symbol, current_price: last, price_decimals: places }];
   });
 }
 
