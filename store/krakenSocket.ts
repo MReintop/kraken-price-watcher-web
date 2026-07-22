@@ -1,7 +1,6 @@
 import type { AppDispatch } from './store';
+import type { TrackedMarket } from '../lib/coins';
 import {
-  baseOf,
-  pairFor,
   parseFrame,
   readSubscribeReply,
   readTickers,
@@ -57,11 +56,20 @@ interface Connection {
 const jittered = (ms: number) => ms / 2 + Math.random() * (ms / 2);
 
 export function startKrakenTicker(
-  symbols: string[],
+  markets: readonly TrackedMarket[],
   dispatch: AppDispatch,
 ): () => void {
-  const pairs = symbols.map(pairFor);
+  // Nothing to subscribe to: an empty subscribe is never answered, so it would
+  // time out at the handshake, close, and reconnect on the backoff forever.
+  if (markets.length === 0) return () => {};
+
+  const pairs = markets.map((market) => market.websocketPair);
   const subscribedPairs = new Set(pairs);
+  // The registry's mapping, not the pair's own prefix: Kraken names dogecoin
+  // XDG/USD and the store keys that row DOGE.
+  const symbolOf = new Map(
+    markets.map((market) => [market.websocketPair, market.symbol]),
+  );
   const buffer = new Map<string, KrakenTick>(); // latest tick per symbol wins
 
   let current: Connection | null = null;
@@ -177,7 +185,11 @@ export function startKrakenTicker(
 
       backoff = 1000; // at least one symbol is genuinely subscribed
       conn.settled = true;
-      dispatch(subscriptionsSettled([...refused].map(baseOf)));
+      dispatch(
+        subscriptionsSettled(
+          [...refused].flatMap((pair) => symbolOf.get(pair) ?? []),
+        ),
+      );
       promote(conn);
     };
 
@@ -226,7 +238,8 @@ export function startKrakenTicker(
       conn.seenTicker = true;
       promote(conn); // also what un-stales a feed that went quiet
       for (const { pair, last } of tickers) {
-        buffer.set(baseOf(pair), { symbol: baseOf(pair), last });
+        const symbol = symbolOf.get(pair);
+        if (symbol) buffer.set(symbol, { symbol, last });
       }
     };
 

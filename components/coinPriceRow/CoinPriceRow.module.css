@@ -34,6 +34,10 @@
   border-radius: 999px;
   font-size: 12px;
   font-weight: 600;
+  /* The arrow is its own element, so the gap is what spaces it from the number. */
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .pillUp {
@@ -46,7 +50,7 @@
   color: var(--down);
 }
 
-/* No direction to colour: the upstream had no figure to give. */
+/* No direction to colour: the market did not move, or had no figure to give. */
 .pillFlat {
   background: var(--surface-alt);
   color: var(--muted);

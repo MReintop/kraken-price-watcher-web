@@ -14,6 +14,7 @@ This version has breaking changes — APIs, conventions, and file structure may 
 These are not optional background. Each documents decisions that are invisible in the code and that fail silently when broken.
 
 - **[docs/store.md](docs/store.md)** — read before touching `store/`, `StoreProvider`, or anything reading prices. Covers the server-state vs client-state split, why the store is a per-request factory, the tick coalescing, and the invariants (the UPPERCASE symbol contract renders _nothing_ when broken — no error).
+- **[docs/experiments.md](docs/experiments.md)** — read before touching `lib/experiments/`, `proxy.ts`, or anything that renders a variant. Covers why the unit id travels as both a cookie and a request header, why assignment happens on the server, and the static→dynamic cost that came with it.
 - **[docs/testing.md](docs/testing.md)** — read before writing or changing a test. Covers the mandatory Arrange–Act–Assert format, which of unit/integration/e2e to reach for, why Redux slices are tested through components rather than in isolation, and why `page.route()` cannot mock a server component's fetch.
 
 # Conventions

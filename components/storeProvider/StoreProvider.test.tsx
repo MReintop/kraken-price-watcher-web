@@ -29,7 +29,12 @@ describe('StoreProvider', () => {
     // Act
     render(
       <StoreProvider initialCoins={coins}>
-        <CoinPriceRow priceDecimals={1} symbol="btc" changePct24H={1} />
+        <CoinPriceRow
+          priceDecimals={1}
+          symbol="btc"
+          changePct24H={1}
+          changePillVariant={'control'}
+        />
       </StoreProvider>,
     );
 
@@ -44,7 +49,12 @@ describe('StoreProvider', () => {
     // Act
     render(
       <StoreProvider initialCoins={coins}>
-        <CoinPriceRow priceDecimals={1} symbol="BTC" changePct24H={1} />
+        <CoinPriceRow
+          priceDecimals={1}
+          symbol="BTC"
+          changePct24H={1}
+          changePillVariant={'control'}
+        />
       </StoreProvider>,
     );
 
@@ -62,7 +72,12 @@ describe('StoreProvider', () => {
     // Act
     render(
       <StoreProvider initialCoins={coins}>
-        <CoinPriceRow priceDecimals={2} symbol="eth" changePct24H={1} />
+        <CoinPriceRow
+          priceDecimals={2}
+          symbol="eth"
+          changePct24H={1}
+          changePillVariant={'control'}
+        />
       </StoreProvider>,
     );
 
@@ -74,7 +89,12 @@ describe('StoreProvider', () => {
     // Arrange / Act
     const { container } = render(
       <StoreProvider initialCoins={[]}>
-        <CoinPriceRow priceDecimals={1} symbol="btc" changePct24H={1} />
+        <CoinPriceRow
+          priceDecimals={1}
+          symbol="btc"
+          changePct24H={1}
+          changePillVariant={'control'}
+        />
       </StoreProvider>,
     );
 
