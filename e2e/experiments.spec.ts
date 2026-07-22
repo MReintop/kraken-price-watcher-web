@@ -101,49 +101,45 @@ test.describe('Experiments (server-assigned)', () => {
   test('assigns a first-time visitor on the response they arrived for', async ({
     browser,
   }) => {
-    // Arrange — a fresh browser whose minted id lands opposite the 'anonymous'
-    // fallback. Without that, a broken bridge renders the fallback's arm and
-    // agrees with the id it ignored half the time, and the test proves nothing.
-    const fallback = assignVariant('anonymous', CHANGE_PILL_STYLE);
-    const visit = async () => {
+    // The minted id cannot be chosen — the server draws it — so the assertion is
+    // the AGREEMENT property instead: every first response must render the arm of
+    // the id it minted. On a healthy build that holds for any draw, so the test
+    // never fails by luck. A broken bridge renders the fallback's arm for every
+    // visitor, so any draw landing opposite the fallback exposes it; K independent
+    // draws all hiding in the fallback's arm is 2^-K (~1/4096), and the next run
+    // re-rolls. (The old version inverted this: it retried until a draw landed
+    // opposite the fallback and failed a HEALTHY build when none did.)
+    const VISITS = 12;
+
+    for (let i = 0; i < VISITS; i++) {
       const context = await browser.newContext({ javaScriptEnabled: false });
       const page = await context.newPage();
       await page.goto('/');
+
+      // Assert — the proxy minted an id and wrote it back
       const unitId = (await context.cookies()).find(
         (cookie) => cookie.name === UID_COOKIE,
       )?.value;
-      return { context, page, unitId };
-    };
+      expect(unitId).toMatch(UUID);
 
-    let visitor = await visit();
-    for (let i = 0; i < 10; i++) {
-      const assigned =
-        visitor.unitId && assignVariant(visitor.unitId, CHANGE_PILL_STYLE);
-      if (assigned && assigned !== fallback) break;
-      await visitor.context.close();
-      visitor = await visit();
+      // Assert — and that same id decided what this very response rendered,
+      // which is the whole point of the request-header bridge
+      const assigned = assignVariant(unitId!, CHANGE_PILL_STYLE);
+      await expectVariant(page, assigned);
+
+      if (i === VISITS - 1) {
+        // Act — a second visit from this visitor, now carrying the cookie
+        await page.reload();
+
+        // Assert — the cookie preserved the assignment rather than re-rolling it
+        const returning = (await context.cookies()).find(
+          (cookie) => cookie.name === UID_COOKIE,
+        );
+        expect(returning?.value).toBe(unitId);
+        await expectVariant(page, assigned);
+      }
+      await context.close();
     }
-    const { context, page, unitId } = visitor;
-
-    // Assert — the proxy minted an id and wrote it back
-    expect(unitId).toMatch(UUID);
-
-    // Assert — and that same id decided what this very response rendered, which
-    // is the whole point of the request-header bridge
-    const assigned = assignVariant(unitId!, CHANGE_PILL_STYLE);
-    expect(assigned).not.toBe(fallback);
-    await expectVariant(page, assigned);
-
-    // Act — a second visit, now carrying the cookie
-    await page.reload();
-
-    // Assert — the cookie preserved the assignment rather than re-rolling it
-    const returning = (await context.cookies()).find(
-      (cookie) => cookie.name === UID_COOKIE,
-    );
-    expect(returning?.value).toBe(unitId);
-    await expectVariant(page, assigned);
-    await context.close();
   });
 
   // The header is the server's only input, so a caller who can set it can choose
