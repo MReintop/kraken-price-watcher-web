@@ -8,6 +8,7 @@
     "start": "next start -p 3002",
     "lint": "eslint",
     "test": "jest",
+    "readout": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/readout.ts",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "test:e2e": "playwright test",

@@ -48,3 +48,4 @@ next-env.d.ts
 
 /.coverage-raw/
 /.next-e2e/
+/.next-demo/
