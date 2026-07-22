@@ -1,10 +1,11 @@
 import { headers } from 'next/headers';
-import { UID_HEADER } from './unit';
+import { UID_HEADER, ANONYMOUS_UNIT } from './unit';
 import { assignVariant, type Experiment, type VariantOf } from './assign';
 import { createExposureLogger } from './exposure';
+import { serverSink } from './eventLog';
 
-// One logger for the server process
-const logExposure = createExposureLogger();
+// One logger for the server process, writing wherever the env points
+const logExposure = createExposureLogger(serverSink());
 
 // The header only, never the cookie: the proxy rewrites it from a validated
 // cookie or a fresh id on every matched request, so it is the one form of this
@@ -12,7 +13,7 @@ const logExposure = createExposureLogger();
 // having run has no assignment to read.
 export async function getUnitId(): Promise<string> {
   const requestHeaders = await headers();
-  return requestHeaders.get(UID_HEADER) ?? 'anonymous';
+  return requestHeaders.get(UID_HEADER) ?? ANONYMOUS_UNIT;
 }
 
 // Assign on the server AND record the exposure here — the server is where the

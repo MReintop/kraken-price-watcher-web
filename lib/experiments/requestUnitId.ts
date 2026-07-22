@@ -1,13 +1,11 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { UID_COOKIE, UID_HEADER } from './unit';
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+import { UID_COOKIE, UID_HEADER, UNIT_ID_SHAPE } from './unit';
 
 // Experiments' own proxy concern: make sure the request carries a stable
 // randomization unit, and that it is one we issued.
 export function attachUnitId(request: NextRequest): NextResponse {
   const cookie = request.cookies.get(UID_COOKIE)?.value;
-  const existing = cookie && UUID.test(cookie) ? cookie : null;
+  const existing = cookie && UNIT_ID_SHAPE.test(cookie) ? cookie : null;
   const unitId = existing ?? crypto.randomUUID();
 
   // Set, never merged: `x-kpw-uid` is internal, so an inbound one is a caller

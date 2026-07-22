@@ -1,20 +1,12 @@
-export interface ExposureEvent {
-  experiment: string;
-  variant: string;
-  unitId: string;
-  at: number;
-}
+import { type EventSink, consoleSink } from './events';
 
-export type ExposureSink = (event: ExposureEvent) => void;
-
-// The only destination that exists today. A real one replaces it here.
-export const consoleSink: ExposureSink = (event) => {
-  console.log('[exposure]', JSON.stringify(event));
-};
+export type { ExposureEvent, EventSink } from './events';
 
 // Dedupe is per process and never evicted: a second instance logs the same user
-// again, and the set grows with the audience. The sink is the place to fix that.
-export function createExposureLogger(sink: ExposureSink = consoleSink) {
+// again, and the set grows with the audience. That is why the sink is only an
+// optimization to keep the log small — the READOUT re-dedupes on
+// (experiment, unitId) and is the count that gets trusted.
+export function createExposureLogger(sink: EventSink = consoleSink) {
   const seen = new Set<string>();
   return function logExposure(
     experiment: string,
@@ -24,6 +16,6 @@ export function createExposureLogger(sink: ExposureSink = consoleSink) {
     const dedupeKey = `${experiment}:${unitId}`;
     if (seen.has(dedupeKey)) return; // this user already counted for this test
     seen.add(dedupeKey);
-    sink({ experiment, variant, unitId, at: Date.now() });
+    sink({ kind: 'exposure', experiment, variant, unitId, at: Date.now() });
   };
 }
