@@ -1,9 +1,10 @@
-import { createExposureLogger, type ExposureEvent } from './exposure';
+import { createExposureLogger } from './exposure';
+import type { ExperimentEvent } from './events';
 
 describe('createExposureLogger', () => {
   it('logs a given user once per experiment, however many reads', () => {
     // Arrange — a spy sink instead of the console
-    const events: ExposureEvent[] = [];
+    const events: ExperimentEvent[] = [];
     const log = createExposureLogger((e) => events.push(e));
 
     // Act — the same user's row renders ten times
@@ -20,7 +21,7 @@ describe('createExposureLogger', () => {
 
   it('logs distinct users separately', () => {
     // Arrange
-    const events: ExposureEvent[] = [];
+    const events: ExperimentEvent[] = [];
     const log = createExposureLogger((e) => events.push(e));
 
     // Act
