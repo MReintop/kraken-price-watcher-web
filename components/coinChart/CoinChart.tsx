@@ -10,7 +10,7 @@ import {
 } from '@/lib/candleChart';
 import { formatSignedPct } from '@/lib/format';
 import { fetchCandles } from '@/lib/chartApi';
-import TimeframeSelector from './TimeframeSelector';
+import TimeframePicker from './TimeframePicker';
 import CandlestickChart from './CandlestickChart';
 import styles from './CoinChart.module.css';
 
@@ -79,7 +79,7 @@ export default function CoinChart({
         )}
         {/* Follows the click, not the data: the request is the answer to the
             press, and aria-busy below says the chart is still catching up. */}
-        <TimeframeSelector
+        <TimeframePicker
           value={pendingDays ?? days}
           onChange={changeTimeframe}
         />

@@ -24,7 +24,7 @@ These are not optional background. Each documents decisions that are invisible i
 
 ## Props get a named interface
 
-A component taking props declares an `interface` named after it — `CoinChartProps`, `TimeframeSelectorProps` — even for a single prop. Not an inline object literal after the destructure, and **never a bare `Props`**: every file would declare a different type under the same name, so the name says nothing at a call site and greps for it are useless.
+A component taking props declares an `interface` named after it — `CoinChartProps`, `TimeframePickerProps` — even for a single prop. Not an inline object literal after the destructure, and **never a bare `Props`**: every file would declare a different type under the same name, so the name says nothing at a call site and greps for it are useless.
 
 ## Comments: last resort, local, short
 
