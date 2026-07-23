@@ -13,6 +13,11 @@ const stubEnv = {
   NEXT_PUBLIC_KRAKEN_WS_URL: `ws://localhost:${STUB_PORT}/socket`,
   // Own build directory, so a running `next dev` cannot clobber this build.
   NEXT_DIST_DIR: '.next-e2e',
+  // Next loads .env.local into the server, so a developer with a Statsig key
+  // would silently hand assignment to Statsig here — and every test that
+  // predicts the deterministic hash would fail (or worse, flake with their
+  // network). e2e asserts the WITHOUT-key contract, same as CI, so blank it.
+  STATSIG_SERVER_SECRET: '',
 };
 
 export default defineConfig({
