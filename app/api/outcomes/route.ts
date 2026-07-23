@@ -6,6 +6,7 @@ import {
 } from '@/lib/experiments/unit';
 import { OUTCOME_NAMES, type OutcomeName } from '@/lib/experiments/registry';
 import { serverSink } from '@/lib/experiments/eventLog';
+import { statsigLogOutcome } from '@/lib/experiments/statsig';
 
 const sink = serverSink();
 
@@ -34,6 +35,9 @@ export async function POST(request: NextRequest): Promise<Response> {
   const unitId = cookie && UNIT_ID_SHAPE.test(cookie) ? cookie : ANONYMOUS_UNIT;
 
   sink({ kind: 'outcome', name: name as OutcomeName, unitId, at: Date.now() });
+  // Mirror to Statsig under the SAME unit the exposure used — the join key is
+  // the contract, whoever the sink is. No-op without the key; never throws.
+  await statsigLogOutcome(unitId, name as OutcomeName);
 
   // 204 always: the response must not leak whether the unit was recognized.
   return new Response(null, { status: 204 });
