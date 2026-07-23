@@ -48,3 +48,8 @@ next-env.d.ts
 
 /.coverage-raw/
 /.next-e2e/
+/.next-demo/
+
+# experiment event logs (EXPERIMENT_EVENTS_FILE)
+/.events/
+events.jsonl

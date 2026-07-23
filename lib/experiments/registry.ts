@@ -13,3 +13,10 @@ export const CHANGE_PILL_STYLE = {
 } as const satisfies Experiment;
 
 export type ChangePillVariant = VariantOf<typeof CHANGE_PILL_STYLE>;
+
+// Outcomes are registered like experiments are: the ingest route accepts
+// exactly these names, so a typo'd or invented event dies at the boundary
+// instead of appearing in the analysis as a metric nobody defined.
+export const OUTCOME_NAMES = ['coin_tap'] as const;
+
+export type OutcomeName = (typeof OUTCOME_NAMES)[number];
