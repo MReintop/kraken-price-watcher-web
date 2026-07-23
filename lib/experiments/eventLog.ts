@@ -17,6 +17,13 @@ export function fileSink(path: string): EventSink {
 // The server's one sink, chosen by env at startup: point
 // EXPERIMENT_EVENTS_FILE at a path to collect a readable log, leave it unset
 // to keep the console behaviour every test already knows.
+//
+// Point it at a path you intend to keep — .events/events.jsonl in the repo is
+// gitignored for exactly this. A /tmp path is an event store until the OS
+// decides otherwise: the first 134 events of this experiment survive only as
+// a snapshot in a note and inside Statsig, because /tmp was cleared. An
+// append-only log the readout can replay is the data-ownership claim of the
+// self-built half; it holds only if the file outlives the machine's mood.
 export function serverSink(): EventSink {
   const path = process.env.EXPERIMENT_EVENTS_FILE;
   return path ? fileSink(path) : consoleSink;
