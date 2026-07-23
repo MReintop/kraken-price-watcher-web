@@ -1,15 +1,15 @@
 import { TIMEFRAMES } from '@/lib/timeframes';
-import styles from './TimeframeSelector.module.css';
+import styles from './TimeframePicker.module.css';
 
-interface TimeframeSelectorProps {
+interface TimeframePickerProps {
   value: number;
   onChange: (days: number) => void;
 }
 
-export default function TimeframeSelector({
+export default function TimeframePicker({
   value,
   onChange,
-}: TimeframeSelectorProps) {
+}: TimeframePickerProps) {
   return (
     <div className={styles.row}>
       {TIMEFRAMES.map((tf) => {

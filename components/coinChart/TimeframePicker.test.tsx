@@ -1,12 +1,12 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { TIMEFRAMES } from '@/lib/timeframes';
-import TimeframeSelector from './TimeframeSelector';
+import TimeframePicker from './TimeframePicker';
 
-describe('TimeframeSelector', () => {
+describe('TimeframePicker', () => {
   it('offers every timeframe as a button', () => {
     // Arrange / Act
-    render(<TimeframeSelector value={30} onChange={jest.fn()} />);
+    render(<TimeframePicker value={30} onChange={jest.fn()} />);
 
     // Assert
     for (const timeframe of TIMEFRAMES) {
@@ -18,7 +18,7 @@ describe('TimeframeSelector', () => {
 
   it('marks the selected timeframe pressed and the others not', () => {
     // Arrange / Act
-    render(<TimeframeSelector value={30} onChange={jest.fn()} />);
+    render(<TimeframePicker value={30} onChange={jest.fn()} />);
 
     // Assert — aria-pressed is what a screen reader (and the e2e suite) reads
     expect(screen.getByRole('button', { name: '1M' })).toHaveAttribute(
@@ -34,7 +34,7 @@ describe('TimeframeSelector', () => {
   it('reports the days value of the clicked timeframe', async () => {
     // Arrange
     const onChange = jest.fn();
-    render(<TimeframeSelector value={30} onChange={onChange} />);
+    render(<TimeframePicker value={30} onChange={onChange} />);
 
     // Act
     await userEvent.click(screen.getByRole('button', { name: '1Y' }));
@@ -46,7 +46,7 @@ describe('TimeframeSelector', () => {
   it('still reports a click on the already-selected timeframe', async () => {
     // Arrange — de-duping is CoinChart's job, not this component's
     const onChange = jest.fn();
-    render(<TimeframeSelector value={30} onChange={onChange} />);
+    render(<TimeframePicker value={30} onChange={onChange} />);
 
     // Act
     await userEvent.click(screen.getByRole('button', { name: '1M' }));
